@@ -16,8 +16,8 @@ SOURCES=(${SOURCES[*]})
 objs=""
 
 for i in ${SOURCES[*]} ; do
-	$ASM -o src/$i.o src/$i.s
+	ec $ASM -o src/$i.o src/$i.s
 	objs+="$i.o"
 done
 
-$LD -o ${SOURCES[0]} ${objs[@]}
+ec $LD -o ${SOURCES[0]} src/${objs[@]}
