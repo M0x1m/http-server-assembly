@@ -62,21 +62,257 @@ htons:
 	pop %rcx
 	ret
 
-client_thr:
+ulen:
+	mov $0, %rax
+	push %rdi
+.ulen.0:
+	cmp $0, %rdi
+	ja .ulen.1
+	jmp .ulen.2
+.ulen.1:
+	push %rax
+	mov %rdi, %rax
+	mov $10, %rbx
+	mov $0, %rdx
+	div %rbx
+	mov %rax, %rdi
+	pop %rax
+	inc %rax
+	jmp .ulen.0
+.ulen.2:
+	pop %rdi
+	ret
+
+utostr:
+	push %rdi
+	push %rbp
 	mov %rsp, %rbp
+	call ulen
+	movl %eax, -8(%rbp)
+	movl %eax, -4(%rbp)
+.utostr.0:
+	cmpl $0, -4(%rbp)
+	ja .utostr.1
+	jmp .utostr.2
+.utostr.1:
+	mov %rdi, %rax
+	mov $10, %rbx
+	mov $0, %rdx
+	div %rbx
+	mov %rax, %rdi
+	add $0x30, %rdx
+	movl -4(%rbp), %ecx
+	subl -8(%rbp), %ecx
+	negl %ecx
+	neg %rcx
+	movb %dl, -10(%rbp, %rcx)
+	decl -4(%rbp)
+	jmp .utostr.0
+.utostr.2:
+	movb $0, -9(%rbp)
+	movl -8(%rbp), %ecx
+	neg %rcx
+	lea -9(%rbp, %rcx), %rax
+	pop %rbp
+	pop %rdi
+	ret
+
+memcpy:
+	push %rdx
+.memcpy.0:
+	cmp $0, %rdx
+	ja .memcpy.1
+	jbe .memcpy.2
+.memcpy.1:
+	movb (%rsi, %rdx), %cl
+	movb %cl, (%rdi, %rdx)
+	dec %rdx
+	jmp .memcpy.0
+.memcpy.2:
+	pop %rdx
+	ret
+
+.data
+	index: .asciz "index.html"
+	resp:
+		.ascii "HTTP/1.1 200 OK\n"
+		.asciz "Content-Length: "
+		.ascii "\nContent-Type: text/html\n"
+		.asciz "Connection: Closed\n\n"
+.text
+
+client_thr:
+	push %rbp
+	mov %rsp, %rbp
+
+	mov $4, %rax
+	lea -144(%rbp), %rsi
+	mov $index, %rdi
+	syscall
+
+	mov 8(%rbp), %rdi
+	mov $resp, %rsi
+	call sndstr
+
+	mov -96(%rbp), %rsi
+	mov 8(%rbp), %rdi
+	call sndustr
+
+	mov $resp, %rdi
+	mov $1, %rsi
+	call getstrbyidx
+	mov %rax, %rsi
+	mov 8(%rbp), %rdi
+	call sndstr
+
+	mov $2, %rax
+	mov $index, %rdi
+	mov $0, %rsi
+	syscall
+
+	movl %eax, -4(%rbp)
+
+	mov $40, %rax
+	mov 8(%rbp), %rdi
+	mov -4(%rbp), %rsi
+	mov $0, %rdx
+	mov -96(%rbp), %r10
+	syscall
+
+/*
+	mov $0, %rsi
 	mov $test.msg, %rdi
+	call getstrbyidx
+	mov %rax, %rdi
 	call strlen
 	mov %rax, %rdx
 	mov $1, %rax
 	mov %rdi, %rsi
-	mov (%rbp), %rdi
+	mov 8(%rbp), %rdi
+	syscall
+*/
+	mov $3, %rax
+	mov 8(%rbp), %rdi
 	syscall
 
 	mov $3, %rax
-	mov (%rbp), %rdi
+	mov -4(%rbp), %rdi
 	syscall
 	
+	pop %rbp
+	mov $0,  %rdi
 	jmp exit
+
+getstrbyidx:
+	push %rdi
+	push %rbp
+	mov %rsp, %rbp
+	movl %esi, -4(%rbp)
+.getstrbyidx.1:
+	cmpl $0, -4(%rbp)
+	ja .getstrbyidx.0
+	je .getstrbyidx.3
+.getstrbyidx.0:
+	decl -4(%rbp)
+.getstrbyidx.4:
+	inc %rdi
+.getstrbyidx.2:
+	cmpb $0, -1(%rdi)
+	ja .getstrbyidx.4
+	jmp .getstrbyidx.1
+.getstrbyidx.3:
+	mov %rdi, %rax
+	pop %rbp
+	pop %rdi
+	ret
+
+memrev:
+	push %rbp
+	mov %rsp, %rbp
+	mov %rsi, %rax
+	mov $2, %rbx
+	mov $0, %rdx
+	div %rbx
+	movl %eax, -4(%rbp)
+.memrev.0:
+	cmpl $0, -4(%rbp)
+	ja .memrev.1
+	jmp .memrev.2
+.memrev.1:
+	decl -4(%rbp)
+	movl -4(%rbp), %eax
+	movb (%rdi, %rax), %cl
+	neg %rax
+	add %rsi, %rax
+	movb (%rdi, %rax), %bl
+	movb %cl, (%rdi, %rax)
+	movl -4(%rbp), %eax
+	movb %bl, (%rdi, %rax)
+	jmp .memrev.0
+.memrev.2:
+	pop %rbp
+	ret
+
+memcmp:
+	mov $1, %rax
+	mov $0, %rbx
+.memcmp.0:
+	movb (%rdi, %rbx), %cl
+	cmpb %cl, (%rsi, %rbx)
+	jne .memcmp.1
+	cmp %rdx, %rbx
+	jl .memcmp.2
+.memcmp.ret:
+	ret
+.memcmp.1:
+	mov $0, %rax
+	jmp .memcmp.ret
+.memcmp.2:
+	inc %rbx
+	jmp .memcmp.0
+
+sndstr:
+	push %rdi
+	mov %rsi, %rdi
+	call strlen
+	mov %rax, %rdx
+	pop %rdi
+	mov $1, %rax
+	syscall
+	ret
+
+sndustr:
+	push %rdi
+	mov %rsi, %rdi
+	call utostr
+	mov %rax, %rdi
+	call strlen
+	mov %rax, %rdx
+	mov %rdi, %rsi
+	pop %rdi
+	mov $1, %rax
+	syscall
+	ret
+
+streq:
+	call strlen
+	mov %rax, %rbx
+	push %rdi
+	mov %rsi, %rdi
+	call strlen
+	mov %rax, %rcx
+	cmp %rbx, %rcx
+	jne .streq.ne
+	je .streq.0
+.streq.0:
+	pop %rdi
+	mov %rbx, %rdx
+	call memcmp
+	ret
+.streq.ne:
+	pop %rdi
+	mov $0, %rax
+	ret
 
 _start:
 	push %rbp
@@ -99,9 +335,9 @@ _start:
 	syscall
 
 	cmp $-1, %rax
-	je ._start.setsock_err
+	jle ._start.setsock_err
 
-	mov $8080, %rdi
+	mov $8380, %rdi
 	sub $8, %rsp
 	call htons
 	movw $2, -24(%rbp)
@@ -114,31 +350,32 @@ _start:
 	syscall
 
 	cmp $-1, %rax
-	je ._start.bind_err
+	jle ._start.bind_err
 
 	mov $50, %rax
 	movl -4(%rbp), %edi
 	mov $5, %rsi
 	syscall
 
-	movl $4, -28(%rbp)
-
 	cmp $-1, %rax
-	je ._start.listen_err
-	jne ._start.listen_pass
+	jle ._start.listen_err
+	jg ._start.listen_pass
 ._start.listen_err:
 	mov $3, %rdi
 	call perror
 ._start.listen_pass:
 	mov $43, %rax
 	movl -4(%rbp), %edi
+	movq $0, -24(%rbp)
+	movq $0, -16(%rbp)
 	lea -24(%rbp), %rsi
-	lea -28(%rbp), %rdx
+	movq $16, -32(%rbp)
+	lea -32(%rbp), %rdx
 	syscall
 
 	cmp $-1, %rax
-	je ._start.accept_err
-	jne ._start.accept_pass
+	jle ._start.accept_err
+	jg ._start.accept_pass
 ._start.accept_err:
 	mov $4, %rax
 	call perror
@@ -146,6 +383,7 @@ _start:
 	mov %rax, %rsi
 	mov $client_thr, %rdi
 	call new_thr
+	jmp ._start.listen_pass
 
 	pop %rbp
 	mov $0, %rdi
@@ -173,7 +411,20 @@ perror:
 	jmp .perror.exit
 .perror.bind:
 	mov $ERR_bind, %rdi
+	push %rax
 	call .perror.print
+	pop %rax
+	cmp $-13, %rax
+	je .perror.bind.eacces
+	jmp .perror.bind.eoth
+.perror.bind.eacces:
+	mov $2, %rdi
+	mov $ERR_EACCES, %rsi
+	call sndstr
+	jmp .perror.exit
+.perror.bind.eoth:
+	mov $ERR_NI, %rsi
+	call sndstr
 	jmp .perror.exit
 .perror.listen:
 	mov $ERR_listen, %rdi
@@ -201,13 +452,11 @@ exit:
 
 .data
 
-	ERR_setsock:
-		.asciz "ERROR: Failed to setsockopt.\n"
-	ERR_bind:
-		.asciz "ERROR: Bind failed.\n"
-	ERR_listen:
-		.asciz "ERROR: Listen failed.\n"
-	ERR_accept:
-		.asciz "ERROR: Accept failed\n"
+	ERR_NI: .asciz "Not implemented yet.\n"
+	ERR_setsock: .asciz "ERROR: Failed to setsockopt.\n"
+	ERR_bind: .asciz "ERROR: Bind failed: "
+	ERR_EACCES:	.asciz "Not enough permission.\n"
+	ERR_listen:	.asciz "ERROR: Listen failed.\n"
+	ERR_accept:	.asciz "ERROR: Accept failed\n"
 	test.msg:
-		.asciz "Message from server!\n"
+		.asciz "HTTP/1.1 200 OK\nServer: Assembly server\nContent-Type: text/html; encoding=utf-8\nContent-Length: 63\nConnection: Closed\n\n<html>\n\t<body>\n\t\t<h1>Hello, World</h1>\n\t</body>\n</html>"

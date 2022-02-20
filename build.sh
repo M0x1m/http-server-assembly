@@ -17,7 +17,7 @@ objs=""
 
 for i in ${SOURCES[*]} ; do
 	ec $ASM -o src/$i.o src/$i.s
-	objs+="$i.o"
+	objs+="src/$i.o"
 done
 
-ec $LD -o ${SOURCES[0]} src/${objs[@]}
+ec $LD -o ${SOURCES[0]} ${objs[@]}
