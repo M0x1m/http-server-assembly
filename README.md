@@ -3,7 +3,7 @@
 
 ## Example
 
-console```
+```
  $ sh build.sh
  $ ./main
 ```
