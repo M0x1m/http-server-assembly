@@ -1,17 +1,24 @@
+idx=0
+CNT=0
 ec(){
-	e=$($@)
-	unset e
-	echo $@
-	if [ "$?" != "0" ] ; then
+	idx=$(($idx+1))
+	printf "  [%*d/$CNT] $*\n" ${#CNT} $idx
+	sh -c "$*"
+	exitcode=$?
+	if [ "$exitcode" != "0" ] ; then
 		echo Compilation failed
 		exit 1
 	fi
+	unset exitcode
 }
 
 ASM=${ASM:=as}
 LD=${LD:=ld}
-SOURCES=${SOURCES:="main"}
-SOURCES=(${SOURCES[*]})
+SOURCES=(`ls src/*.s | sed 's/.s//; s/src\///'`)
+#SOURCES=${SOURCES:="main"}
+#SOURCES=(${SOURCES[*]})
+CNT=${#SOURCES[*]}
+CNT=$(($CNT+3))
 
 objs=""
 
@@ -20,4 +27,7 @@ for i in ${SOURCES[*]} ; do
 	objs+="src/$i.o"
 done
 
-ec $LD -o ${SOURCES[0]} ${objs[@]}
+ec ar svcr server.a ${objs[@]}
+
+ec $LD -o server server.a -O1
+ec rm -v ${objs[@]} server.a

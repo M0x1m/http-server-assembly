@@ -1,0 +1,13 @@
+
+    # This is example config!
+
+		port=42782	 # Port setting
+
+host_addr=192.168.1.67 		
+  	port=8230   	
+
+# Comments support
+
+#	host_addr=127.0.0.1
+
+	# End of file
