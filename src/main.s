@@ -173,9 +173,9 @@ memcpy:
 	ja .memcpy.1
 	jbe .memcpy.2
 .memcpy.1:
+	dec %rdx
 	movb (%rsi, %rdx), %cl
 	movb %cl, (%rdi, %rdx)
-	dec %rdx
 	jmp memcpy
 .memcpy.2:
 	ret
@@ -469,8 +469,11 @@ getvar:
 offt_to_delim:
 	mov $0, %rax
 .offt_to_delim.1:
+	cmpb $0, (%rdi, %rax)
+	je .offt_to_delim.ret
 	cmpb %sil, (%rdi, %rax)
 	jne .offt_to_delim.0
+.offt_to_delim.ret:
 	ret
 .offt_to_delim.0:
 	inc %rax
@@ -498,11 +501,6 @@ inet_addr:
 	mov %rdi, %rsi
 	movb $0x2E, %sil
 	call offt_to_delim
-	push %rax
-	call strlen
-	mov %rax, %rsi
-	pop %rdi
-	call min
 	mov -8(%rbp), %rdi
 	mov %rax, %rsi
 	movb %al, -14(%rbp)
@@ -633,31 +631,125 @@ parse_cfg:
 	pop %rbp
 	ret
 .parse_cfg.port:
+	cmpb $1, (aport)
+	je .parse_cfg.opts
 	movl -4(%rbp), %edi
 	call getval
-	mov %rax, %rsi
-	mov %rax, -20(%rbp)
+	mov %rax, %rdi
 	mov %rax, %rsp
-	mov -20(%rbp), %rdi
 	mov $0, %rsi
 	call strtou
 	movw %ax, (port)
 	jmp .parse_cfg.opts
 .parse_cfg.addr:
+	cmpb $1, (asaddr)
+	je .parse_cfg.opts
 	movl -4(%rbp), %edi
 	call getval
 	mov %rax, %rdi
 	call inet_addr
-#	mov $16777343, %rax
 	movl %eax, (saddr)
 	jmp .parse_cfg.opts
+
+parse_args:
+	push %rbp
+	mov %rsp, %rbp
+	sub $16, %rsp
+	mov (argc), %rax
+	movl %eax, -4(%rbp)
+.parse_args.0:
+	cmpl $1, -4(%rbp)
+	ja .parse_args.1
+	jmp .parse_args.ret
+.parse_args.1:
+	decl -4(%rbp)
+	movl -4(%rbp), %esi
+	mov (args), %rdi
+	call getstrbyidx
+	mov %rax, %rdi
+	mov %rax, -12(%rbp)
+	mov $0x3D, %sil
+	call offt_to_delim
+	lea 1(%rax), %rdx
+	movl %eax, -16(%rbp)
+	neg %rax
+	lea -18(%rbp, %rax), %rsp
+	movb $0, -17(%rbp)
+	mov %rsp, %rdi
+	mov -12(%rbp), %rsi
+	call memcpy
+	mov $ARGS, %rsi
+	mov $4, %rdx
+	call strinstrs
+	cmp $0, %rax
+	je .parse_args.cfg
+	cmp $1, %rax
+	je .parse_args.usage
+	cmp $2, %rax
+	je .parse_args.port
+	cmp $3, %rax
+	je .parse_args.host_addr
+	jmp .parse_args.0
+.parse_args.ret:
+	mov %rbp, %rsp
+	pop %rbp
+	ret
+.parse_args.cfg:
+	mov -12(%rbp), %rax
+	mov $1, %rbx
+	addl -16(%rbp), %ebx
+	add %rbx, %rax
+	mov %rax, (cfgpath)
+	jmp .parse_args.0
+.parse_args.usage:
+	mov $USAGE, %rsi
+	mov $1, %rdi
+	call sndstr
+	mov (args), %rsi
+	call sndstr
+	mov $USAGE, %rdi
+	mov $1, %rsi
+	call getstrbyidx
+	mov %rax, %rsi
+	mov $1, %rdi
+	call sndstr
+	mov $0, %rdi
+	jmp exit
+	jmp .parse_args.0
+.parse_args.port:
+	movb $1, (aport)
+	mov -12(%rbp), %rax
+	mov $1, %rbx
+	addl -16(%rbp), %ebx
+	add %rbx, %rax
+	mov %rax, %rdi
+	mov $0, %rsi
+	call strtou
+	movw %ax, (port)
+	jmp .parse_args.0
+.parse_args.host_addr:
+	movb $1, (asaddr)
+	mov -12(%rbp), %rax
+	mov $1, %rbx
+	addl -16(%rbp), %ebx
+	add %rbx, %rax
+	mov %rax, %rdi
+	call inet_addr
+	movl %eax, (saddr)
+	jmp .parse_args.0
 
 _start:
 	push %rbp
 	mov %rsp, %rbp
 
+	mov 8(%rbp), %rax
+	mov %rax, (argc)
+	mov 16(%rbp), %rax
+	mov %rax, (args)
+
 	sub $32, %rsp
 
+	call parse_args
 	call parse_cfg
 
 	mov $41, %rax
@@ -769,15 +861,19 @@ perror:
 	je .perror.bind.eacces
 	cmp $-98, %rax
 	je .perror.bind.addrinuse
+	cmp $-99, %rax
+	je .perror.bind.addrnotavail
 	jmp .perror.eoth
 .perror.bind.eacces:
-	mov $2, %rdi
 	mov $ERR_EACCES, %rdi
 	call .perror.print
 	jmp .perror.exit
 .perror.bind.addrinuse:
-	mov $2, %rdi
 	mov $ERR_EADDRINUSE, %rdi
+	call .perror.print
+	jmp .perror.exit
+.perror.bind.addrnotavail:
+	mov $ERR_EADDRNOTAVAIL, %rdi
 	call .perror.print
 	jmp .perror.exit
 .perror.eoth:
@@ -839,6 +935,10 @@ exit:
 
 .data
 
+	argc: .quad 0
+	args: .quad 0
+	aport: .byte 0
+	asaddr: .byte 0
 	port: .word 99
 	saddr: .long 0
 	cfgpath: .quad dcfgpath
@@ -857,10 +957,25 @@ exit:
 	ERR_open: .asciz "ERROR: Could not open the file `\0': "
 	ERR_ENOENT: .asciz "File does not exist.\n"	
 	ERR_EADDRINUSE:	.asciz "Address in use.\n"
+	ERR_EADDRNOTAVAIL: .asciz "Interface does not exist, check your host_addr option in the config file.\n"
 	ERR_EACCES:	.asciz "Not enough permission.\n"
 	ERR_listen:	.asciz "ERROR: Listen failed.\n"
 	ERR_accept:	.asciz "ERROR: Accept failed.\n"
 
+	ARGS:
+		.asciz "--config="
+		.asciz "--help"
+		.asciz "--port="
+		.asciz "--host_addr="
+
 	CFG_KEYWORDS:
 		.asciz "port="
 		.asciz "host_addr="
+
+	USAGE:
+		.ascii "Usage: \0 <args>\n"
+		.ascii "  Arguments:\n"
+		.ascii "    --config=<cfg file>    Path to server config file.\n"
+		.ascii "    --port=<srv bind port> Server port to bind instead of the config port option.\n"
+		.ascii "    --host_addr=<ip>       Network interface to bind instead of the config option.\n"
+		.asciz "    --help                 Prints this message.\n"
