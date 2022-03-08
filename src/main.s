@@ -209,15 +209,72 @@ wait_client:
 	pop %rdi
 	ret
 
+getcpath:
+	push %rbp
+	mov %rsp, %rbp
+	movb $0, -1(%rbp)
+	movl $0, -5(%rbp)
+	movl %edi, -9(%rbp)
+	sub $17, %rsp
+.getcpath.0:
+	cmpb $0, -1(%rbp)
+	je .getcpath.1
+	incl -5(%rbp)
+.getcpath.1:
+	mov $0, %rax
+	movl -5(%rbp), %eax
+	neg %rax
+	lea -18(%rbp, %rax), %rsi
+	mov %rsi, -17(%rbp)
+	mov $1, %rdx
+	movl -9(%rbp), %edi
+	mov $0, %rax
+	syscall
+	mov -17(%rbp), %rax
+	cmpb $0x20, (%rax)
+	je .getcpath.2
+	jmp .getcpath.0
+.getcpath.ret:
+	mov -17(%rbp), %rdi
+	inc %rdi
+	mov $0, %rsi
+	movl -5(%rbp), %esi
+	sub %rsi, %rsp
+	dec %rsi
+	movb $0, (%rdi, %rsi)
+	dec %rsi
+	call memrev
+	lea 1(%rdi), %rax
+	mov %rbp, %rsp
+	pop %rbp
+	ret
+.getcpath.2:
+	cmpb $1, -1(%rbp)
+	je .getcpath.ret
+	movb $1, -1(%rbp)
+	jmp .getcpath.0
+
 client_thr:
 	push %rbp
 	mov %rsp, %rbp
 
-	sub $144, %rsp
+	sub $156, %rsp
 
-	mov $4, %rax
+	mov 8(%rbp), %rdi
+	call getcpath
+	mov %rax, %rsi
+	mov %rax, -156(%rbp)
+	mov $1, %rdi
+	mov (fsroot), %rdi
+	mov $0, %rdx
+	mov $257, %rax
+	syscall
+
+	movl %eax, -148(%rbp)
+
+	mov $5, %rax
 	lea -144(%rbp), %rsi
-	mov $index, %rdi
+	movl -148(%rbp), %edi
 	syscall
 
 	mov 8(%rbp), %rdi
@@ -235,13 +292,6 @@ client_thr:
 	mov 8(%rbp), %rdi
 	call sndstr
 
-	mov $2, %rax
-	mov $index, %rdi
-	mov $0, %rsi
-	syscall
-
-	movl %eax, -4(%rbp)
-
 .client_thr.2:
 	cmpq $65536, -96(%rbp)
 	ja .client_thr.0
@@ -256,7 +306,7 @@ client_thr:
 .client_thr.3:
 	mov $40, %rax
 	mov 8(%rbp), %rdi
-	mov -4(%rbp), %rsi
+	mov -148(%rbp), %rsi
 	mov $0, %rdx
 	syscall
 
@@ -271,7 +321,7 @@ client_thr:
 	syscall
 
 	mov $3, %rax
-	mov -4(%rbp), %rdi
+	mov -148(%rbp), %rdi
 	syscall
 
 	add $144, %rsp
@@ -614,13 +664,15 @@ parse_cfg:
 	call getvar
 	mov %rax, %rdi
 	mov $CFG_KEYWORDS, %rsi
-	mov $2, %rdx
+	mov $3, %rdx
 	call strinstrs
 	cmp $0, %rax
 	je .parse_cfg.port
 	cmp $1, %rax
 	je .parse_cfg.addr
-	cmpl $1, -12(%rbp)
+	cmp $2, %rax
+	je .parse_cfg.root
+	cmpl $2, -12(%rbp)
 	incl -12(%rbp)
 	jb .parse_cfg.opts
 .parse_cfg.ret:
@@ -631,10 +683,10 @@ parse_cfg:
 	pop %rbp
 	ret
 .parse_cfg.port:
-	cmpb $1, (aport)
-	je .parse_cfg.opts
 	movl -4(%rbp), %edi
 	call getval
+	cmpb $1, (aport)
+	je .parse_cfg.opts
 	mov %rax, %rdi
 	mov %rax, %rsp
 	mov $0, %rsi
@@ -642,13 +694,26 @@ parse_cfg:
 	movw %ax, (port)
 	jmp .parse_cfg.opts
 .parse_cfg.addr:
-	cmpb $1, (asaddr)
-	je .parse_cfg.opts
 	movl -4(%rbp), %edi
 	call getval
+	cmpb $1, (asaddr)
+	je .parse_cfg.opts
 	mov %rax, %rdi
 	call inet_addr
 	movl %eax, (saddr)
+	jmp .parse_cfg.opts
+.parse_cfg.root:
+	movl -4(%rbp), %edi
+	call getval
+	cmpb $1, (aroot)
+	je .parse_cfg.opts
+	mov %rax, %rdi
+	call strlen
+	mov %rax, %rdx
+	mov %rdi, %rsi
+	mov $srootbuf, %rdi
+	call memcpy
+	movq $srootbuf, (serv_root)
 	jmp .parse_cfg.opts
 
 parse_args:
@@ -689,6 +754,8 @@ parse_args:
 	je .parse_args.port
 	cmp $3, %rax
 	je .parse_args.host_addr
+	cmp $4, %rax
+	je .parse_args.root
 	jmp .parse_args.0
 .parse_args.ret:
 	mov %rbp, %rsp
@@ -737,6 +804,14 @@ parse_args:
 	call inet_addr
 	movl %eax, (saddr)
 	jmp .parse_args.0
+.parse_args.root:
+	movb $1, (aroot)
+	mov -12(%rbp), %rax
+	mov $1, %rbx
+	addl -16(%rbp), %ebx
+	add %rbx, %rax
+	mov %rax, (serv_root)
+	jmp .parse_args.0
 
 _start:
 	push %rbp
@@ -751,6 +826,14 @@ _start:
 
 	call parse_args
 	call parse_cfg
+
+	mov $2, %rax
+	mov (serv_root), %rdi
+	mov $65536, %rsi
+	syscall
+	cmp $0, %rax
+	jl ._start.sroot.err
+	mov %eax, (fsroot)
 
 	mov $41, %rax
 	mov $2, %rdi
@@ -833,6 +916,11 @@ _start:
 ._start.bind_err:
 	mov $2, %rdi
 	jmp perror
+._start.sroot.err:
+	mov $5, %rdi
+	mov $0, %rsi
+	mov (serv_root), %rdx
+	jmp perror
 
 perror:
 	push %rbp
@@ -848,6 +936,13 @@ perror:
 	je .perror.accept
 	cmp $5, %rdi
 	je .perror.open
+	jmp .perror.Ni
+.perror.Ni:
+	mov $ERR_ERR, %rdi
+	call .perror.print
+	mov $ERR_NI, %rdi
+	call .perror.print
+	jmp .perror.exit
 .perror.setsock:
 	mov $ERR_setsock, %rdi
 	call .perror.print
@@ -933,16 +1028,23 @@ exit:
 	mov $60, %rax
 	syscall
 
+.bss
+	srootbuf: .comm byte, 4096
+
 .data
 
 	argc: .quad 0
 	args: .quad 0
 	aport: .byte 0
 	asaddr: .byte 0
+	aroot: .byte 0
 	port: .word 99
 	saddr: .long 0
+	fsroot: .long 0
 	cfgpath: .quad dcfgpath
+	serv_root: .quad dserv_root
 
+	dserv_root: .asciz "."
 	index: .asciz "index.html"
 	resp:
 		.ascii "HTTP/1.1 200 OK\n"
@@ -951,6 +1053,7 @@ exit:
 		.asciz "\nConnection: Closed\n\n"
 
 	dcfgpath: .asciz "config"
+	ERR_ERR: .asciz "ERROR: "
 	ERR_NI: .asciz "Not implemented yet.\n"
 	ERR_setsock: .asciz "ERROR: Failed to setsockopt.\n"
 	ERR_bind: .asciz "ERROR: Bind failed: "
@@ -967,14 +1070,17 @@ exit:
 		.asciz "--help"
 		.asciz "--port="
 		.asciz "--host_addr="
+		.asciz "--root="
 
 	CFG_KEYWORDS:
 		.asciz "port="
 		.asciz "host_addr="
+		.asciz "root="
 
 	USAGE:
 		.ascii "Usage: \0 <args>\n"
 		.ascii "  Arguments:\n"
+		.ascii "    --root=<srv root dir>  Server root directory.\n"
 		.ascii "    --config=<cfg file>    Path to server config file.\n"
 		.ascii "    --port=<srv bind port> Server port to bind instead of the config port option.\n"
 		.ascii "    --host_addr=<ip>       Network interface to bind instead of the config option.\n"
