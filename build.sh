@@ -24,7 +24,7 @@ objs=""
 
 for i in ${SOURCES[*]} ; do
 	ec $ASM -o src/$i.o src/$i.s
-	objs+="src/$i.o"
+	objs+="src/$i.o "
 done
 
 ec ar svcr server.a ${objs[@]}
