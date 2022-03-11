@@ -182,7 +182,12 @@ memcpy:
 
 wait_client:
 	push %rdi
+	movw $0, -11(%rsp)
 .wait_client.0:
+	cmpw $10, -11(%rsp)
+	je .wait_client.2
+	incw -11(%rsp)
+.wait_client.1:
 	mov $1, %rax
 	mov (%rsp), %rdi
 	movb $0, -9(%rsp)
@@ -195,7 +200,7 @@ wait_client:
 	movw $0, -2(%rsp)
 	mov $7, %rax
 	mov $1, %rsi
-	mov $50, %rdx
+	mov $500, %rdx
 	lea -8(%rsp), %rdi
 	syscall
 	cmp $0, %rax
@@ -244,7 +249,8 @@ getcpath:
 	movb $0, (%rdi, %rsi)
 	dec %rsi
 	call memrev
-	lea 1(%rdi), %rax
+	movb $0x2F, %sil
+	call skip_delim
 	mov %rbp, %rsp
 	pop %rbp
 	ret
@@ -258,7 +264,7 @@ client_thr:
 	push %rbp
 	mov %rsp, %rbp
 
-	sub $156, %rsp
+	sub $164, %rsp
 
 	mov 8(%rbp), %rdi
 	call getcpath
@@ -304,18 +310,28 @@ client_thr:
 	mov -96(%rbp), %r10
 	movq $0, -96(%rbp)
 .client_thr.3:
+	movl 8(%rbp), %eax
+	movl %eax, -164(%rbp)
+	movw $8192, -160(%rbp)
+	movw $0, -158(%rbp)
+	lea -164(%rbp), %rdi
+	mov $1, %rsi
+	mov $0, %rdx
+	mov $7, %rax
+	syscall
+	cmpw $0, -158(%rbp)
+	jne .client_thr.disconn
 	mov $40, %rax
 	mov 8(%rbp), %rdi
 	mov -148(%rbp), %rsi
 	mov $0, %rdx
 	syscall
-
 	cmpq $0, -96(%rbp)
 	ja .client_thr.2
 
 	mov 8(%rbp), %rdi
 	call wait_client
-
+.client_thr.disconn:
 	mov $3, %rax
 	mov 8(%rbp), %rdi
 	syscall
@@ -329,6 +345,15 @@ client_thr:
 	pop %rbp
 	mov $0, %rdi
 	jmp exit
+
+skip_delim:
+	mov %rdi, %rax
+	cmpb %sil, (%rdi)
+	je .skip_delim.1
+	ret
+.skip_delim.1:
+	inc %rdi
+	jmp skip_delim
 
 getstrbyidx:
 	push %rbp
@@ -445,6 +470,8 @@ skip_sts:
 	mov %rsp, %rbp
 	movb $0, -2(%rbp)
 	movl $0, -6(%rbp)
+	mov %rsi, -14(%rbp)
+	sub $14, %rsp
 .skip_sts.0:
 	mov $0, %rax
 	lea -1(%rbp), %rsi
@@ -460,7 +487,7 @@ skip_sts:
 	cmpb $0x20, -1(%rbp)
 	je .skip_sts.0
 	cmpb $10, -1(%rbp)
-	je .skip_sts.0
+	je .skip_sts.3
 	cmpb $0x9, -1(%rbp)
 	je .skip_sts.0
 	mov $8, %rax
@@ -468,6 +495,7 @@ skip_sts:
 	mov $1, %rdx
 	syscall
 .skip_sts.ret:
+	mov %rbp, %rsp
 	pop %rbp
 	ret
 .skip_sts.1:
@@ -477,11 +505,16 @@ skip_sts:
 	cmpb $10, -1(%rbp)
 	jne .skip_sts.0
 	movb $0, -2(%rbp)
+.skip_sts.3:
+	mov -14(%rbp), %rax
+	incq (%rax)
 	jmp .skip_sts.0
 
 getvar:
 	push %rbp
 	mov %rsp, %rbp
+	mov %rsi, -16(%rbp)
+	sub $16, %rsp
 	call skip_sts
 	movq $0, -8(%rbp)
 .getvar.0:
@@ -496,24 +529,77 @@ getvar:
 	mov -8(%rbp), %rcx
 	neg %rcx
 	incq -8(%rbp)
-	cmpb $61, -90(%rbp, %rcx)
+	movb -90(%rbp, %rcx), %al
+	cmpb $0x20, %al
+	je .getvar.2
+	cmpb $10, %al
+	je .getvar.3
+	cmpb $9, %al
+	je .getvar.2
+	cmpb $61, %al
 	jne .getvar.0
+	je .getvar.1
+.getvar.3:
+	push %rcx
+	mov $8, %rax
+	mov $-1, %rsi
+	mov $1, %rdx
+	syscall
+	pop %rcx
+.getvar.2:
+	decq -8(%rbp)
+	inc %rcx
 .getvar.1:
 	cmpq $0, -8(%rbp)
 	je .getvar.err
 	movb $0, -89(%rbp)
 	lea -90(%rbp, %rcx), %rsp
-	lea -90(%rbp, %rcx), %rdi
+	mov %rsp, %rdi
 	mov -8(%rbp), %rsi
 	dec %rsi
 	call memrev
 	mov %rdi, %rax
 	jmp .getvar.pass
 .getvar.err:
-	lea -9(%rbp), %rax
+	mov $-1, %rax
 .getvar.pass:
 	mov %rbp, %rsp
 	pop %rbp
+	ret
+
+unexp_word:
+	push %rbp
+	mov %rsp, %rbp
+	sub $16, %rsp
+	mov %rdi, -8(%rbp)
+	mov %rsi, -16(%rbp)
+.unexp_word.0:
+	mov (cfgpath), %rdi
+	call .perror.print
+	call .unexp_word.2
+	mov $2, %rdi
+	mov -16(%rbp), %rsi
+	call sndustr
+	call .unexp_word.2
+	mov $ERR_unexp_word, %rdi
+	mov $1, %rsi
+	call getstrbyidx
+	mov %rax, %rdi
+	call .perror.print
+	mov -8(%rbp), %rdi
+	call .perror.print
+	mov $2, %rsi
+	mov $ERR_unexp_word, %rdi
+	call getstrbyidx
+	mov %rax, %rdi
+	call .perror.print
+	mov %rbp, %rsp
+	pop %rbp
+	ret
+.unexp_word.2:
+	mov $ERR_unexp_word, %rsi
+	mov $2, %rdi
+	call sndstr
 	ret
 
 offt_to_delim:
@@ -576,11 +662,12 @@ getval:
 	push %rbp
 	mov %rsp, %rbp
 	movl $0, -4(%rbp)
+	mov %rsi, -12(%rbp)
 .getval.0:
 	mov $0, %rax
 	movl -4(%rbp), %ecx
 	neg %rcx
-	lea -160(%rbp, %rcx), %rsi
+	lea -14(%rbp, %rcx), %rsi
 	mov $1, %rdx
 	syscall
 	cmp $0, %rax
@@ -588,27 +675,30 @@ getval:
 	movl -4(%rbp), %ecx
 	neg %rcx
 	incl -4(%rbp)
-	cmpb $35, -160(%rbp, %rcx)
+	cmpb $35, -14(%rbp, %rcx)
 	je .getval.1
-	cmpb $0x20, -160(%rbp, %rcx)
+	cmpb $0x20, -14(%rbp, %rcx)
 	je .getval.1
-	cmpb $10, -160(%rbp, %rcx)
-	je .getval.1
-	cmpb $9, -160(%rbp, %rcx)
+	cmpb $10, -14(%rbp, %rcx)
+	je .getval.2
+	cmpb $9, -14(%rbp, %rcx)
 	je .getval.1
 	jmp .getval.0
 .getval.ret:
+	mov %rbp, %rsp
 	pop %rbp
 	ret
+.getval.2:
+	mov -12(%rbp), %rax
+	incq (%rax)
 .getval.1:
-	movb $0, -159(%rbp)
-	lea -159(%rbp, %rcx), %rsp
-	lea -159(%rbp, %rcx), %rdi
+	movb $0, -13(%rbp)
+	lea -13(%rbp, %rcx), %rsp
+	lea -13(%rbp, %rcx), %rdi
 	neg %rcx
 	lea -1(%rcx), %rsi
 	call memrev
 	mov %rdi, %rax
-	mov %rbp, %rsp
 	jmp .getval.ret
 
 strinstrs:
@@ -642,7 +732,8 @@ strinstrs:
 parse_cfg:
 	push %rbp
 	mov %rsp, %rbp
-	sub $12, %rsp
+	movq $1, -20(%rbp)
+	sub $20, %rsp
 	mov $2, %rax
 	mov (cfgpath), %rdi
 	mov $0, %rsi
@@ -650,19 +741,22 @@ parse_cfg:
 	cmp $-1, %rax
 	jle .parse_cfg.oerr
 	movl %eax, -4(%rbp)
-	jmp .parse_cfg.opass
+	jmp .parse_cfg.opts
 .parse_cfg.oerr:
 	mov $5, %rdi
 	mov $1, %rsi
 	mov (cfgpath), %rdx
 	call perror
 	jmp .parse_cfg.ret
-.parse_cfg.opass:
-	movl $0, -12(%rbp)
 .parse_cfg.opts:
 	movl -4(%rbp), %edi
+	lea -20(%rbp), %rsi
 	call getvar
+	cmp $0, %rax
+	jl .parse_cfg.ret
 	mov %rax, %rdi
+	mov %rax, -12(%rbp)
+	mov %rax, %rsp
 	mov $CFG_KEYWORDS, %rsi
 	mov $3, %rdx
 	call strinstrs
@@ -672,9 +766,10 @@ parse_cfg:
 	je .parse_cfg.addr
 	cmp $2, %rax
 	je .parse_cfg.root
-	cmpl $2, -12(%rbp)
-	incl -12(%rbp)
-	jb .parse_cfg.opts
+	mov -12(%rbp), %rdi
+	mov -20(%rbp), %rsi
+	call unexp_word
+	jmp .parse_cfg.opts
 .parse_cfg.ret:
 	mov $3, %rax
 	movl -4(%rbp), %edi
@@ -684,6 +779,7 @@ parse_cfg:
 	ret
 .parse_cfg.port:
 	movl -4(%rbp), %edi
+	lea -20(%rbp), %rsi
 	call getval
 	cmpb $1, (aport)
 	je .parse_cfg.opts
@@ -695,19 +791,23 @@ parse_cfg:
 	jmp .parse_cfg.opts
 .parse_cfg.addr:
 	movl -4(%rbp), %edi
+	lea -20(%rbp), %rsi
 	call getval
 	cmpb $1, (asaddr)
 	je .parse_cfg.opts
 	mov %rax, %rdi
+	mov %rax, %rsp
 	call inet_addr
 	movl %eax, (saddr)
 	jmp .parse_cfg.opts
 .parse_cfg.root:
 	movl -4(%rbp), %edi
+	lea -20(%rbp), %rsi
 	call getval
 	cmpb $1, (aroot)
 	je .parse_cfg.opts
 	mov %rax, %rdi
+	mov %rax, %rsp
 	call strlen
 	mov %rax, %rdx
 	mov %rdi, %rsi
@@ -1038,6 +1138,7 @@ exit:
 	aport: .byte 0
 	asaddr: .byte 0
 	aroot: .byte 0
+	ddir_files: .byte 1
 	port: .word 99
 	saddr: .long 0
 	fsroot: .long 0
@@ -1045,12 +1146,12 @@ exit:
 	serv_root: .quad dserv_root
 
 	dserv_root: .asciz "."
-	index: .asciz "index.html"
+	ddir_file: .asciz "index.html"
 	resp:
 		.ascii "HTTP/1.1 200 OK\n"
-		.asciz "Content-Length: "
-		.ascii "\nContent-Type: text/html"
-		.asciz "\nConnection: Closed\n\n"
+		.ascii "Content-Length: \0\n"
+		.ascii "Content-Type: text/html\n"
+		.asciz "Connection: Closed\n\n"
 
 	dcfgpath: .asciz "config"
 	ERR_ERR: .asciz "ERROR: "
@@ -1064,6 +1165,7 @@ exit:
 	ERR_EACCES:	.asciz "Not enough permission.\n"
 	ERR_listen:	.asciz "ERROR: Listen failed.\n"
 	ERR_accept:	.asciz "ERROR: Accept failed.\n"
+	ERR_unexp_word: .asciz ":\0 Unexpected word: `\0'.\n"
 
 	ARGS:
 		.asciz "--config="
