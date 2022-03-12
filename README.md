@@ -58,12 +58,12 @@ This parameter specifies path to the server's configuration file.
 
 ### --port=
 
-See [port option](#port=)
+See [port option](#port)
 
 ### --host_addr=
 
-See [host_addr option](#host_addr=)
+See [host_addr option](#host_addr)
 
 ### --root=
 
-See [root option](#root=)
+See [root option](#root)
