@@ -9,8 +9,8 @@ $ ./server
 
 The server will start according to the parameters of the configuration file:
 
-> Binding address: 192.168.1.67\
-  Binding port: 42782\
+> Binding address: 0.0.0.0(All interfaces)\
+  Binding port: 8080\
   The server root directory: .
 
 You can change these parameters in the config file [config](./config).
