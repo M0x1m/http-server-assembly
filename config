@@ -1,13 +1,5 @@
-
-    # This is example config!
-
-		port=42782	 # Port setting
-#	root=. 				#server root directory
-
-host_addr=192.168.1.67 	
- # 	port=8230   	
-
-# Comments support
-
-#	host_addr=127.0.0.1
-
+port=8080
+host_addr=
+root=.
+ddir_file=index.html
+do_ddir_files=true

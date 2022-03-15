@@ -268,8 +268,13 @@ client_thr:
 
 	mov 8(%rbp), %rdi
 	call getcpath
-	mov %rax, %rsi
-	mov %rax, -156(%rbp)
+	mov %rax, %rdi
+	call strlen
+	cmp $0, %rax
+	je .client_thr.root_dir
+.client_thr.root_0:
+	mov %rdi, %rsi
+	mov %rdi, -156(%rbp)
 	mov $1, %rdi
 	mov (fsroot), %rdi
 	mov $0, %rdx
@@ -283,6 +288,25 @@ client_thr:
 	movl -148(%rbp), %edi
 	syscall
 
+	movl -120(%rbp), %eax
+	andl $0170000, %eax
+	cmpl $040000, %eax
+	je .client_thr.dfile
+	jne .client_thr.pfile
+.client_thr.dfile:
+	cmpb $1, (ddir_files)
+	jne .client_thr.pfile
+	movl -148(%rbp), %edi
+	mov (ddir_filep), %rsi
+	mov $0, %rdx
+	mov $257, %rax
+	syscall
+	movl %eax, -148(%rbp)
+	mov $5, %rax
+	lea -144(%rbp), %rsi
+	movl -148(%rbp), %edi
+	syscall
+.client_thr.pfile:
 	mov 8(%rbp), %rdi
 	mov $resp, %rsi
 	call sndstr
@@ -345,6 +369,9 @@ client_thr:
 	pop %rbp
 	mov $0, %rdi
 	jmp exit
+.client_thr.root_dir:
+	mov $point, %rdi
+	jmp .client_thr.root_0
 
 skip_delim:
 	mov %rdi, %rax
@@ -758,7 +785,7 @@ parse_cfg:
 	mov %rax, -12(%rbp)
 	mov %rax, %rsp
 	mov $CFG_KEYWORDS, %rsi
-	mov $3, %rdx
+	mov $5, %rdx
 	call strinstrs
 	cmp $0, %rax
 	je .parse_cfg.port
@@ -766,6 +793,10 @@ parse_cfg:
 	je .parse_cfg.addr
 	cmp $2, %rax
 	je .parse_cfg.root
+	cmp $3, %rax
+	je .parse_cfg.ddir_file
+	cmp $4, %rax
+	je .parse_cfg.do_ddir_files
 	mov -12(%rbp), %rdi
 	mov -20(%rbp), %rsi
 	call unexp_word
@@ -814,6 +845,44 @@ parse_cfg:
 	mov $srootbuf, %rdi
 	call memcpy
 	movq $srootbuf, (serv_root)
+	jmp .parse_cfg.opts
+.parse_cfg.do_ddir_files:
+	movl -4(%rbp), %edi
+	lea -20(%rbp), %rsi
+	call getval
+	mov %rax, %rsp
+	mov %rsp, %rdi
+	mov $TRUE, %rsi
+	call streq
+	cmp $0, %rax
+	je .parse_cfg.do_ddir_files.0
+	movb $1, (ddir_files)
+	jmp .parse_cfg.opts
+.parse_cfg.do_ddir_files.0:
+	mov $FALSE, %rsi
+	call streq
+	cmp $0, %rax
+	je .parse_cfg.do_ddir_files.1
+	movb $0, (ddir_files)
+	jmp .parse_cfg.opts
+.parse_cfg.do_ddir_files.1:
+	mov %rsp, %rdi
+	decq -20(%rbp)
+	mov -20(%rbp), %rsi
+	call unexp_word
+	jmp .parse_cfg.opts
+.parse_cfg.ddir_file:
+	movl -4(%rbp), %edi
+	lea -20(%rbp), %rsi
+	call getval
+	mov %rax, %rsp
+	mov %rsp, %rdi
+	call strlen
+	mov %rax, %rdx
+	mov $ddir_fileb, %rdi
+	mov %rsp, %rsi
+	call memcpy
+	movq $ddir_fileb, (ddir_filep)
 	jmp .parse_cfg.opts
 
 parse_args:
@@ -1129,10 +1198,11 @@ exit:
 	syscall
 
 .bss
-	srootbuf: .comm byte, 4096
+	.comm srootbuf, 4096
+	.comm ddir_fileb, 256
 
 .data
-
+	
 	argc: .quad 0
 	args: .quad 0
 	aport: .byte 0
@@ -1144,8 +1214,10 @@ exit:
 	fsroot: .long 0
 	cfgpath: .quad dcfgpath
 	serv_root: .quad dserv_root
+	point: .asciz "."
 
 	dserv_root: .asciz "."
+	ddir_filep: .quad ddir_file
 	ddir_file: .asciz "index.html"
 	resp:
 		.ascii "HTTP/1.1 200 OK\n"
@@ -1158,10 +1230,10 @@ exit:
 	ERR_NI: .asciz "Not implemented yet.\n"
 	ERR_setsock: .asciz "ERROR: Failed to setsockopt.\n"
 	ERR_bind: .asciz "ERROR: Bind failed: "
-	ERR_open: .asciz "ERROR: Could not open the file `\0': "
+	ERR_open: .asciz "ERROR: Could not open `\0': "
 	ERR_ENOENT: .asciz "File does not exist.\n"	
 	ERR_EADDRINUSE:	.asciz "Address in use.\n"
-	ERR_EADDRNOTAVAIL: .asciz "Interface does not exist, check your host_addr option in the config file.\n"
+	ERR_EADDRNOTAVAIL: .asciz "Interface does not exist, check your host_addr option.\n"
 	ERR_EACCES:	.asciz "Not enough permission.\n"
 	ERR_listen:	.asciz "ERROR: Listen failed.\n"
 	ERR_accept:	.asciz "ERROR: Accept failed.\n"
@@ -1178,6 +1250,11 @@ exit:
 		.asciz "port="
 		.asciz "host_addr="
 		.asciz "root="
+		.asciz "ddir_file="
+		.asciz "do_ddir_files="
+	
+	TRUE: .asciz "true"
+	FALSE: .asciz "false"
 
 	USAGE:
 		.ascii "Usage: \0 <args>\n"
