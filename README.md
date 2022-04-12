@@ -77,10 +77,16 @@ A comment in the config file denfines by `#`.
 ## Arguments
 
 List of arguments:
-> --config=\<file>\
+> -d | --daemonize\
+  --config=\<file>\
   --port=\<port>\
   --host_addr=\<ip>\
-  --root=\<dir>
+  --root=\<dir>\
+  -h | --help
+
+### -d | --daemonize 
+
+Daemonize the server.
 
 ### --config=
 
@@ -97,3 +103,7 @@ See [host_addr option](#host_addr)
 ### --root=
 
 See [root option](#root)
+
+### -h | --help
+
+Prints usage message and list of the arguments.
