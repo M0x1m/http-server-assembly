@@ -40,11 +40,31 @@ The client won't have access to files and directories below the server root.
 
 ### ddir_file=
 
-This parameter the defines default file name of file that will be opened when client requests a directory.
+This parameter the defines default file name of file that will be opened in requested directory when client requests a directory.
 
 ### do\_ddir_files=
 
-This parameter toggles opening files by [default file name](#ddir_file) when client requests a directory.
+This parameter toggles opening files in requested directories by [default file name](#ddir_file) when client requests a directory.
+
+### 404_path=
+
+This parameter defines path to 404 http error page.
+
+### 403_path=
+
+Same as [404](404_path)
+
+### do\_custom_404=
+
+This parameter toggles using of page described by [404_path option](404_path)
+
+### do\_custom_403=
+
+Same as [do\_custom_404](do\_custom_404)
+
+### min_permission=
+
+This parameter defines minimal permission for file openning. If file permission less than this option the server sends 403 error response.
 
 ### Commentaries
 

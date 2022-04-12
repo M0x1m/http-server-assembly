@@ -1,3 +1,4 @@
+#!/usr/bin/bash
 idx=0
 CNT=0
 ec(){
@@ -12,6 +13,14 @@ ec(){
 	fi
 	unset exitcode
 }
+
+UNDEBUG_FL="-s"
+
+for arg in $@; do
+	if [ "$arg" == "--debug" ]; then
+		UNDEBUG_FL=""
+	fi
+done
 
 ASM=${ASM:=as}
 LD=${LD:=ld}
@@ -31,5 +40,5 @@ done
 
 ec ar svcr server.a ${objs[@]}
 
-ec $LD -o server server.a -O1
+ec $LD -o server server.a -O1 $UNDEBUG_FL
 ec rm -vrf objs/ server.a

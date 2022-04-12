@@ -1,5 +1,10 @@
 port=8080
+do_custom_403=false
+404_path=pages/404.html
+403_path=pages/403.html
 host_addr=
 root=.
-ddir_file=index.html
+ddir_file=main.s
 do_ddir_files=true
+do_custom_404=false
+min_permission=7

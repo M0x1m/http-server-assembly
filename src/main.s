@@ -169,50 +169,66 @@ utostr:
 	ret
 
 memcpy:
-	cmp $0, %rdx
-	ja .memcpy.1
-	jbe .memcpy.2
-.memcpy.1:
-	dec %rdx
-	movb (%rsi, %rdx), %cl
-	movb %cl, (%rdi, %rdx)
-	jmp memcpy
-.memcpy.2:
+	mov %rdx, %rcx
+	mov %rdi, %rax
+	rep movsb
+	mov %rax, %rdi
 	ret
 
 wait_client:
 	push %rdi
-	movw $0, -11(%rsp)
+	movw $0, -14(%rsp)
+	jmp .wait_client.1
 .wait_client.0:
-	cmpw $10, -11(%rsp)
+	cmpl $0, -12(%rsp)
 	je .wait_client.2
-	incw -11(%rsp)
+	cmpw $90, -14(%rsp)
+	je .wait_client.2
 .wait_client.1:
-	mov $1, %rax
-	mov (%rsp), %rdi
-	movb $0, -9(%rsp)
-	lea -9(%rsp), %rsi
-	mov $1, %rdx
-	syscall
 	mov (%rsp), %rax
 	movl %eax, -8(%rsp)
-	movw $8192, -4(%rsp)
+	movw $8216, -4(%rsp)
 	movw $0, -2(%rsp)
 	mov $7, %rax
 	mov $1, %rsi
-	mov $500, %rdx
+	mov $1000, %rdx
 	lea -8(%rsp), %rdi
 	syscall
-	cmp $0, %rax
-	je .wait_client.0
-	movw -2(%rsp), %bx
-	andw $8192, %bx
-	cmpw $8192, %bx
-	je .wait_client.2
+	testw $8216, -2(%rsp)
+	jnz .wait_client.2
+	lea -12(%rsp), %rdx
+	mov $21521, %rsi
+	mov (%rsp), %rdi
+	mov $16, %rax
+	syscall
+	incw -14(%rsp)
 	jmp .wait_client.0
 .wait_client.2:
 	pop %rdi
 	ret
+
+strslen: # computes NULL-terminated strings's length
+# rdi - pointer to NULL-terminated strings; rsi - number of NULL-terminated strings
+	push %rbp
+	mov %rsp, %rbp
+	mov %rdi, -8(%rbp)
+	movq $0, -16(%rbp)
+	sub $16, %rsp
+.strslen.0:
+	cmp $0, %rsi
+	ja .strslen.1
+	mov -16(%rbp), %rax
+	mov %rbp, %rsp
+	pop %rbp
+	ret
+.strslen.1:
+	dec %rsi
+	mov -8(%rbp), %rdi
+	call getstrbyidx
+	mov %rax, %rdi
+	call strlen
+	add %rax, -16(%rbp)
+	jmp .strslen.0
 
 getcpath:
 	push %rbp
@@ -220,16 +236,28 @@ getcpath:
 	movb $0, -1(%rbp)
 	movl $0, -5(%rbp)
 	movl %edi, -9(%rbp)
-	sub $17, %rsp
+	sub $25, %rsp
 .getcpath.0:
 	cmpb $0, -1(%rbp)
 	je .getcpath.1
 	incl -5(%rbp)
 .getcpath.1:
+	lea -25(%rbp), %rdi
+	mov $1, %rsi
+	mov $90000, %rdx
+	movl -9(%rbp), %eax
+	movl %eax, -25(%rbp)
+	movw $8217, -21(%rbp)
+	mov $7, %rax
+	syscall
+	cmp $0, %rax
+	je .getcpath.errret
+	testw $8216, -19(%rbp)
+	jnz .getcpath.errret
 	mov $0, %rax
 	movl -5(%rbp), %eax
 	neg %rax
-	lea -18(%rbp, %rax), %rsi
+	lea -26(%rbp, %rax), %rsi
 	mov %rsi, -17(%rbp)
 	mov $1, %rdx
 	movl -9(%rbp), %edi
@@ -251,6 +279,10 @@ getcpath:
 	call memrev
 	movb $0x2F, %sil
 	call skip_delim
+	jmp .getcpath.fret
+.getcpath.errret:
+	mov $-1, %rax
+.getcpath.fret:
 	mov %rbp, %rsp
 	pop %rbp
 	ret
@@ -260,6 +292,59 @@ getcpath:
 	movb $1, -1(%rbp)
 	jmp .getcpath.0
 
+_exit: # group exit
+	mov $231, %rax
+	syscall
+
+sndfd: # edi -> esi
+	push %rbp
+	mov %rsp, %rbp
+	mov %edi, -148(%rbp)   # edi - sending file
+	mov %esi, -160(%rbp)   # esi - client socket
+	sub $160, %rsp
+	mov $5, %rax
+	lea -144(%rbp), %rsi
+	syscall
+.sndfd.2:
+	cmpq $65536, -96(%rbp)
+	ja .sndfd.0
+	jb .sndfd.1
+.sndfd.0:
+	mov $65536, %r10
+	subq $65536, -96(%rbp)
+	jmp .sndfd.3
+.sndfd.1:
+	mov -96(%rbp), %r10
+	movq $0, -96(%rbp)
+.sndfd.3:
+	lea -148(%rbp), %rsi
+	lea -156(%rbp), %rdi
+	movsl
+	movw $8216, -152(%rbp)
+	movw $0, -150(%rbp)
+	lea -156(%rbp), %rdi
+	mov $1, %rsi
+	mov $0, %rdx
+	mov $7, %rax
+	syscall
+	testw $8216, -150(%rbp)
+	jnz .sndfd.disconn
+	mov $40, %rax
+	mov -160(%rbp), %rdi
+	mov -148(%rbp), %rsi
+	mov $0, %rdx
+	syscall
+	cmpq $0, -96(%rbp)
+	ja .sndfd.2
+	xor %rax, %rax
+	jmp .sndfd.ret
+.sndfd.disconn:
+	mov $-1, %rax
+.sndfd.ret:
+	mov %rbp, %rsp
+	pop %rbp
+	ret
+
 client_thr:
 	push %rbp
 	mov %rsp, %rbp
@@ -268,19 +353,24 @@ client_thr:
 
 	mov 8(%rbp), %rdi
 	call getcpath
+	mov %rax, %rsp
+	cmp $-1, %rax
+	je .client_thr.closeconn
 	mov %rax, %rdi
 	call strlen
 	cmp $0, %rax
 	je .client_thr.root_dir
-.client_thr.root_0:
+	mov %rdi, -156(%rbp) 		# requested file name pointer to string saved in -156(%rbp)
 	mov %rdi, %rsi
-	mov %rdi, -156(%rbp)
-	mov $1, %rdi
 	mov (fsroot), %rdi
 	mov $0, %rdx
 	mov $257, %rax
 	syscall
-
+	cmp $-13, %rax
+	je .client_thr.403
+	cmp $-2, %rax
+	je .client_thr.404
+.client_thr.200:
 	movl %eax, -148(%rbp)
 
 	mov $5, %rax
@@ -289,89 +379,275 @@ client_thr:
 	syscall
 
 	movl -120(%rbp), %eax
+	andl $07, %eax
+	cmpl (mpermission), %eax
+	jle .client_thr.403
+	movl -120(%rbp), %eax
 	andl $0170000, %eax
 	cmpl $040000, %eax
 	je .client_thr.dfile
-	jne .client_thr.pfile
+	jmp .client_thr.pfile
 .client_thr.dfile:
-	cmpb $1, (ddir_files)
-	jne .client_thr.pfile
+	testb $8, (fls)
+	jz .client_thr.pfile
 	movl -148(%rbp), %edi
 	mov (ddir_filep), %rsi
 	mov $0, %rdx
 	mov $257, %rax
 	syscall
-	movl %eax, -148(%rbp)
+	mov %rax, %r9
+	movl -148(%rbp), %edi
+	mov $3, %rax
+	syscall
+	cmp $-13, %r9
+	je .client_thr.403
+	cmp $-2, %r9
+	je .client_thr.404
+	movl %r9d, -148(%rbp)
 	mov $5, %rax
 	lea -144(%rbp), %rsi
 	movl -148(%rbp), %edi
 	syscall
+	mov -120(%rbp), %eax
+	andl $07, %eax
+	cmpl (mpermission), %eax
+	jle .client_thr.403
 .client_thr.pfile:
 	mov 8(%rbp), %rdi
 	mov $resp, %rsi
 	call sndstr
 
+	mov $resp_m, %rsi
+	call sndstr
+	mov $resp, %rsi
+	mov $1, %edx
+	mov 8(%rbp), %rdi
+	call sndstrbyidx
+
 	mov -96(%rbp), %rsi
 	mov 8(%rbp), %rdi
 	call sndustr
 
-	mov $resp, %rdi
-	mov $1, %rsi
-	call getstrbyidx
-	mov %rax, %rsi
+	mov $resp, %rsi
+	mov $2, %edx
 	mov 8(%rbp), %rdi
-	call sndstr
+	call sndstrbyidx
 
-.client_thr.2:
-	cmpq $65536, -96(%rbp)
-	ja .client_thr.0
-	jb .client_thr.1
-.client_thr.0:
-	mov $65536, %r10
-	subq $65536, -96(%rbp)
-	jmp .client_thr.3
-.client_thr.1:
-	mov -96(%rbp), %r10
-	movq $0, -96(%rbp)
-.client_thr.3:
-	movl 8(%rbp), %eax
-	movl %eax, -164(%rbp)
-	movw $8192, -160(%rbp)
-	movw $0, -158(%rbp)
-	lea -164(%rbp), %rdi
-	mov $1, %rsi
-	mov $0, %rdx
-	mov $7, %rax
-	syscall
-	cmpw $0, -158(%rbp)
-	jne .client_thr.disconn
-	mov $40, %rax
-	mov 8(%rbp), %rdi
-	mov -148(%rbp), %rsi
-	mov $0, %rdx
-	syscall
-	cmpq $0, -96(%rbp)
-	ja .client_thr.2
+	mov -148(%rbp), %rdi
+	mov 8(%rbp), %rsi
+	call sndfd
 
 	mov 8(%rbp), %rdi
 	call wait_client
 .client_thr.disconn:
 	mov $3, %rax
-	mov 8(%rbp), %rdi
-	syscall
-
-	mov $3, %rax
 	mov -148(%rbp), %rdi
 	syscall
 
-	add $144, %rsp
-	
+.client_thr.closeconn:
+	mov $3, %rax
+	mov 8(%rbp), %rdi
+	syscall
+
+	mov %rbp, %rsp	
 	pop %rbp
 	mov $0, %rdi
 	jmp exit
 .client_thr.root_dir:
-	mov $point, %rdi
-	jmp .client_thr.root_0
+	mov (fsroot), %rdi
+	mov $32, %rax
+	syscall
+	jmp .client_thr.200
+.client_thr.404:
+	testb $32, (fls)
+	jnz .client_thr.404.c
+	mov 8(%rbp), %rdi
+	mov $resp, %rsi
+	call sndstr
+
+	mov 8(%rbp), %edi
+	mov $resp_m, %rsi
+	mov $1, %edx
+	call sndstrbyidx
+	mov $resp, %rsi
+	mov $1, %edx
+	mov 8(%rbp), %rdi
+	call sndstrbyidx
+
+	cmpq $0, -156(%rbp)
+	jne .client_thr.404.0
+	testb $8, (fls)
+	jnz .client_thr.404.1
+	dec %rsp
+	mov %rsp, -156(%rbp)
+	mov -156(%rbp), %rdi
+	movb $0x2F, (%rdi)
+.client_thr.404.1:
+	lea (ddir_filep), %rsi
+	lea -156(%rbp), %rdi
+	movsq
+.client_thr.404.0:
+	mov $d404p, %rdi
+	mov $2, %rsi
+	call strslen
+	xor %rsi, %rsi
+	mov %rax, %rsi
+	mov -156(%rbp), %rdi
+	call strlen
+	add %rax, %rsi
+	mov 8(%rbp), %rdi
+	call sndustr
+
+	mov $resp, %rsi
+	mov $2, %edx
+	mov 8(%rbp), %rdi
+	call sndstrbyidx
+
+	mov $d404p, %rsi
+	call sndstr
+	mov -156(%rbp), %rsi
+	call sndstr
+
+	mov $1, %edx
+	mov $d404p, %rsi
+	call sndstrbyidx
+
+	mov 8(%rbp), %rdi
+	call wait_client
+	jmp .client_thr.closeconn
+.client_thr.404.c:
+	mov (p404path), %rdi
+	mov $0, %rsi
+	mov $2, %rax
+	syscall
+
+	cmp $0, %rax
+	jg .client_thr.404.cc
+	mov %rdi, %rdx
+	mov $5, %rdi
+	mov $0, %sil
+	call perror
+.client_thr.404.cc:
+	movl %eax, -148(%rbp)
+	mov %rax, %rdi
+	lea -144(%rbp), %rsi
+	mov $5, %rax
+	syscall
+
+	mov 8(%rbp), %rdi
+	mov $resp, %rsi
+	call sndstr
+	mov $1, %edx
+	mov $resp_m, %rsi
+	call sndstrbyidx
+	mov $resp, %rsi
+	mov $1, %edx
+	call sndstrbyidx
+	mov -96(%rbp), %rsi
+	call sndustr
+	mov $resp, %rsi
+	mov $2, %edx
+	call sndstrbyidx
+
+	movl -148(%rbp), %edi
+	mov 8(%rbp), %rsi
+	call sndfd	
+	mov 8(%rbp), %rdi
+	call wait_client
+	jmp .client_thr.closeconn
+.client_thr.403:
+	mov 8(%rbp), %rdi
+	mov $resp, %rsi
+	call sndstr
+	mov $2, %edx
+	mov $resp_m, %rsi
+	call sndstrbyidx
+	mov $resp, %rsi
+	mov $1, %edx
+	call sndstrbyidx
+	
+	testb $64, (fls)
+	jnz .client_thr.403.c
+
+	mov $d403p, %rdi
+	call strlen
+	mov %rax, -8(%rbp)
+	cmpq $0, -156(%rbp)
+	je .client_thr.403.up
+	mov -156(%rbp), %rdi
+	call strlen
+	cmp $0, %rax
+	jne .client_thr.403.up
+	lea (ddir_filep), %rsi
+	lea -156(%rbp), %rdi
+	movsq
+.client_thr.403.up:
+	mov -156(%rbp), %rdi
+	call strlen
+	add %rax, -8(%rbp)
+	mov $d403p, %rdi
+	mov $1, %rsi
+	call getstrbyidx
+	mov %rax, %rdi
+	call strlen
+	add %rax, -8(%rbp)
+	mov -8(%rbp), %rsi
+	mov 8(%rbp), %rdi
+	call sndustr
+	mov $resp, %rsi
+	mov $2, %edx
+	call sndstrbyidx
+
+	mov $d403p, %rsi
+	call sndstr
+	mov -156(%rbp), %rsi
+	call sndstr
+	mov $d403p, %rsi
+	mov $1, %edx
+	call sndstrbyidx
+	jmp .client_thr.403.end
+.client_thr.403.c:
+	mov (p403path), %rdi
+	mov $0, %rsi
+	mov $2, %rax
+	syscall
+	cmp $0, %rax
+	jle .client_thr.403.end
+
+	mov %eax, -148(%rbp)
+	mov $5, %rax
+	mov -148(%rbp), %edi
+	lea -144(%rbp), %rsi
+	syscall
+
+	mov -96(%rbp), %rsi
+	mov 8(%rbp), %rdi
+	call sndustr
+
+	mov $2, %edx
+	mov $resp, %rsi
+	call sndstrbyidx
+
+	mov -148(%rbp), %edi
+	mov 8(%rbp), %rsi
+	call sndfd
+
+	mov $3, %rax
+	mov -148(%rbp), %edi
+	syscall
+.client_thr.403.end:
+	mov 8(%rbp), %rdi
+	call wait_client
+	jmp .client_thr.closeconn
+
+putc:
+	mov %dil, -1(%rsp)
+	lea -1(%rsp), %rsi
+	mov $1, %rdi
+	mov $1, %rdx
+	mov $1, %rax
+	syscall
+	ret
 
 skip_delim:
 	mov %rdi, %rax
@@ -432,22 +708,15 @@ memrev:
 	ret
 
 memcmp:
-	mov $1, %rax
-	mov $0, %rbx
-.memcmp.0:
-	movb (%rdi, %rbx), %cl
-	cmpb %cl, (%rsi, %rbx)
-	jne .memcmp.1
-	cmp %rdx, %rbx
-	jl .memcmp.2
-.memcmp.ret:
-	ret
-.memcmp.1:
+	mov %rdx, %rcx
+	cld
+	repe cmpsb
+	jrcxz .memcmp.e 
 	mov $0, %rax
-	jmp .memcmp.ret
-.memcmp.2:
-	inc %rbx
-	jmp .memcmp.0
+	ret
+.memcmp.e:
+	mov $1, %rax
+	ret
 
 sndstr:
 	push %rdi
@@ -472,6 +741,23 @@ sndustr:
 	syscall
 	ret
 
+sndstrbyidx:
+	push %rbp
+	mov %rsp, %rbp
+	mov %edi, -4(%rbp)
+	mov %rsi, -12(%rbp)
+	mov %edx, -16(%rbp)
+	sub $16, %rsp
+	mov -12(%rbp), %rdi
+	movl -16(%rbp), %esi
+	call getstrbyidx
+	mov %rax, %rsi
+	mov -4(%rbp), %rdi
+	call sndstr
+	mov %rbp, %rsp
+	pop %rbp
+	ret
+
 streq:
 	call strlen
 	mov %rax, %rbx
@@ -484,7 +770,7 @@ streq:
 	je .streq.0
 .streq.0:
 	pop %rdi
-	mov %rbx, %rdx
+	lea 1(%rbx), %rdx
 	call memcmp
 	ret
 .streq.ne:
@@ -651,6 +937,31 @@ min:
 	mov %rsi, %rax
 	ret
 
+println:
+	push %rbp
+	mov %rsp, %rbp
+	mov %rdi, -8(%rbp)
+	sub $8, %rsp
+	call strlen
+	add $2, %rax
+	movw $2560, -3(%rsp)
+	sub %rax, %rsp
+	mov -8(%rbp), %rsi
+	mov %rsp, %rdi
+	lea -2(%rax), %rdx
+	call memcpy
+	mov %rsp, %rdi
+	call strlen
+	mov %rdi, %rsi
+	mov %rax, %rdx
+	mov $1, %rdi
+	mov $1, %rax
+	syscall
+	mov -8(%rbp), %rdi
+	mov %rbp, %rsp 
+	pop %rbp
+	ret
+
 inet_addr:
 	push %rbp
 	mov %rsp, %rbp
@@ -785,18 +1096,28 @@ parse_cfg:
 	mov %rax, -12(%rbp)
 	mov %rax, %rsp
 	mov $CFG_KEYWORDS, %rsi
-	mov $5, %rdx
+	mov $10, %rdx
 	call strinstrs
-	cmp $0, %rax
+	cmp $0, %ax
 	je .parse_cfg.port
-	cmp $1, %rax
+	cmp $1, %ax
 	je .parse_cfg.addr
-	cmp $2, %rax
+	cmp $2, %ax
 	je .parse_cfg.root
-	cmp $3, %rax
+	cmp $3, %ax
 	je .parse_cfg.ddir_file
-	cmp $4, %rax
+	cmp $4, %ax
 	je .parse_cfg.do_ddir_files
+	cmp $5, %ax
+	je .parse_cfg.do_custom_404
+	cmp $6, %al
+	je .parse_cfg.404_path
+	cmp $7, %al
+	je .parse_cfg.do_custom_403
+	cmp $8, %al
+	je .parse_cfg.403_path
+	cmp $9, %al
+	je .parse_cfg.mpermission
 	mov -12(%rbp), %rdi
 	mov -20(%rbp), %rsi
 	call unexp_word
@@ -812,8 +1133,8 @@ parse_cfg:
 	movl -4(%rbp), %edi
 	lea -20(%rbp), %rsi
 	call getval
-	cmpb $1, (aport)
-	je .parse_cfg.opts
+	testb $1, (fls)
+	jnz .parse_cfg.opts
 	mov %rax, %rdi
 	mov %rax, %rsp
 	mov $0, %rsi
@@ -824,8 +1145,8 @@ parse_cfg:
 	movl -4(%rbp), %edi
 	lea -20(%rbp), %rsi
 	call getval
-	cmpb $1, (asaddr)
-	je .parse_cfg.opts
+	testb $2, (fls)
+	jnz .parse_cfg.opts
 	mov %rax, %rdi
 	mov %rax, %rsp
 	call inet_addr
@@ -835,8 +1156,8 @@ parse_cfg:
 	movl -4(%rbp), %edi
 	lea -20(%rbp), %rsi
 	call getval
-	cmpb $1, (aroot)
-	je .parse_cfg.opts
+	testb $4, (fls)
+	jnz .parse_cfg.opts
 	mov %rax, %rdi
 	mov %rax, %rsp
 	call strlen
@@ -844,7 +1165,9 @@ parse_cfg:
 	mov %rdi, %rsi
 	mov $srootbuf, %rdi
 	call memcpy
-	movq $srootbuf, (serv_root)
+	mov (serv_root), %rdi
+	lea (srootbuf), %rsi
+	movsq
 	jmp .parse_cfg.opts
 .parse_cfg.do_ddir_files:
 	movl -4(%rbp), %edi
@@ -854,16 +1177,16 @@ parse_cfg:
 	mov %rsp, %rdi
 	mov $TRUE, %rsi
 	call streq
-	cmp $0, %rax
+	cmp $0, %al
 	je .parse_cfg.do_ddir_files.0
-	movb $1, (ddir_files)
+	orb $8, (fls)
 	jmp .parse_cfg.opts
 .parse_cfg.do_ddir_files.0:
 	mov $FALSE, %rsi
 	call streq
-	cmp $0, %rax
+	cmp $0, %al
 	je .parse_cfg.do_ddir_files.1
-	movb $0, (ddir_files)
+	andb $~8, (fls)
 	jmp .parse_cfg.opts
 .parse_cfg.do_ddir_files.1:
 	mov %rsp, %rdi
@@ -882,7 +1205,97 @@ parse_cfg:
 	mov $ddir_fileb, %rdi
 	mov %rsp, %rsi
 	call memcpy
-	movq $ddir_fileb, (ddir_filep)
+	movq %rdi, (ddir_filep)
+	jmp .parse_cfg.opts
+.parse_cfg.do_custom_404:
+	movl -4(%rbp), %edi
+	lea -20(%rbp), %rsi
+	call getval
+	mov %rax, %rsp
+	mov %rsp, %rdi
+	mov $TRUE, %rsi
+	call streq
+	cmpb $0, %al
+	je .parse_cfg.do_custom_404.0
+	orb $32, (fls)
+	jmp .parse_cfg.opts
+.parse_cfg.do_custom_404.0:
+	mov $FALSE, %rsi
+	call streq
+	cmpb $0, %al
+	je .parse_cfg.do_custom_404.1
+	andb $~32, (fls)
+	jmp .parse_cfg.opts
+.parse_cfg.do_custom_404.1:
+	decq -20(%rbp)
+	mov -20(%rbp), %rsi
+	mov %rsp, %rdi
+	call unexp_word
+	jmp .parse_cfg.opts
+.parse_cfg.404_path:
+	movl -4(%rbp), %edi
+	lea -20(%rbp), %rsi
+	call getval
+	testb $32, (fls)
+	jz .parse_cfg.opts
+	mov %rax, %rsp
+	mov %rax, %rdi
+	call strlen
+	mov %rax, %rdx
+	mov %rsp, %rsi
+	mov $e404pathb, %rdi
+	call memcpy
+	mov %rdi, (p404path)
+	jmp .parse_cfg.opts
+.parse_cfg.do_custom_403:
+	movl -4(%rbp), %edi
+	lea -20(%rbp), %rsi
+	call getval
+	mov %rax, %rsp
+	mov %rsp, %rdi
+	mov $TRUE, %rsi
+	call streq
+	cmpb $0, %al
+	je .parse_cfg.do_custom_403.0
+	orb $64, (fls)
+	jmp .parse_cfg.opts
+.parse_cfg.do_custom_403.0:
+	mov $FALSE, %rsi
+	call streq
+	cmpb $0, %al
+	je .parse_cfg.do_custom_403.1
+	andb $~64, (fls)
+	jmp .parse_cfg.opts
+.parse_cfg.do_custom_403.1:
+	decq -20(%rbp)
+	mov -20(%rbp), %rsi
+	mov %rsp, %rdi
+	call unexp_word
+	jmp .parse_cfg.opts
+.parse_cfg.403_path:
+	movl -4(%rbp), %edi
+	lea -20(%rbp), %rsi
+	call getval
+	testb $64, (fls)
+	jz .parse_cfg.opts
+	mov %rax, %rsp
+	mov %rax, %rdi
+	call strlen
+	mov %rax, %rdx
+	mov %rsp, %rsi
+	mov $e403pathb, %rdi
+	call memcpy
+	mov %rdi, (p403path)
+	jmp .parse_cfg.opts
+.parse_cfg.mpermission:
+	movl -4(%rbp), %edi
+	lea -20(%rbp), %rsi
+	call getval
+	mov %rax, %rsp
+	mov %rax, %rdi
+	mov $0, %rsi
+	call strtou
+	mov %eax, (mpermission)
 	jmp .parse_cfg.opts
 
 parse_args:
@@ -909,22 +1322,36 @@ parse_args:
 	neg %rax
 	lea -18(%rbp, %rax), %rsp
 	movb $0, -17(%rbp)
-	mov %rsp, %rdi
 	mov -12(%rbp), %rsi
+	mov %rsp, %rdi
 	call memcpy
 	mov $ARGS, %rsi
-	mov $4, %rdx
+	mov $8, %rdx
 	call strinstrs
-	cmp $0, %rax
+	cmp $0, %al
 	je .parse_args.cfg
-	cmp $1, %rax
+	cmp $1, %al
 	je .parse_args.usage
-	cmp $2, %rax
+	cmp $2, %al
 	je .parse_args.port
-	cmp $3, %rax
+	cmp $3, %al
 	je .parse_args.host_addr
-	cmp $4, %rax
+	cmp $4, %al
 	je .parse_args.root
+	cmp $5, %al
+	je .parse_args.daemonize
+	cmp $6, %al
+	je .parse_args.daemonize	
+	cmp $7, %al
+	je .parse_args.usage
+	mov $ERR_unknown_arg, %rdi
+	call .perror.print
+	mov %rsp, %rdi
+	call .perror.print
+	mov $2, %rdi
+	mov $ERR_unknown_arg, %rsi
+	mov $1, %edx
+	call sndstrbyidx
 	jmp .parse_args.0
 .parse_args.ret:
 	mov %rbp, %rsp
@@ -943,17 +1370,15 @@ parse_args:
 	call sndstr
 	mov (args), %rsi
 	call sndstr
-	mov $USAGE, %rdi
-	mov $1, %rsi
-	call getstrbyidx
-	mov %rax, %rsi
-	mov $1, %rdi
-	call sndstr
+	mov $USAGE, %rsi
+	mov $1, %edx
+	mov $1, %edi
+	call sndstrbyidx
 	mov $0, %rdi
 	jmp exit
 	jmp .parse_args.0
 .parse_args.port:
-	movb $1, (aport)
+	orb $1, (fls)
 	mov -12(%rbp), %rax
 	mov $1, %rbx
 	addl -16(%rbp), %ebx
@@ -964,7 +1389,7 @@ parse_args:
 	movw %ax, (port)
 	jmp .parse_args.0
 .parse_args.host_addr:
-	movb $1, (asaddr)
+	orb $2, (fls)
 	mov -12(%rbp), %rax
 	mov $1, %rbx
 	addl -16(%rbp), %ebx
@@ -974,12 +1399,15 @@ parse_args:
 	movl %eax, (saddr)
 	jmp .parse_args.0
 .parse_args.root:
-	movb $1, (aroot)
+	orb $4, (fls)
 	mov -12(%rbp), %rax
 	mov $1, %rbx
 	addl -16(%rbp), %ebx
 	add %rbx, %rax
 	mov %rax, (serv_root)
+	jmp .parse_args.0
+.parse_args.daemonize:
+	orb $16, (fls)
 	jmp .parse_args.0
 
 _start:
@@ -996,6 +1424,13 @@ _start:
 	call parse_args
 	call parse_cfg
 
+	testb $16, (fls)
+	jz _start.ndaemonize
+	mov $57, %rax
+	syscall
+	cmp $0, %al
+	jne exit
+_start.ndaemonize:
 	mov $2, %rax
 	mov (serv_root), %rdi
 	mov $65536, %rsi
@@ -1011,7 +1446,7 @@ _start:
 	syscall
 
 	movl %eax, -4(%rbp)
-	
+
 	mov $54, %rax
 	movl -4(%rbp), %edi
 	mov $1, %rsi
@@ -1147,13 +1582,13 @@ perror:
 .perror.listen:
 	mov $ERR_listen, %rdi
 	call .perror.print
-	add $16, %rsp
+	mov %rbp, %rsp
 	pop %rbp
 	ret
 .perror.accept:
 	mov $ERR_accept, %rdi
 	call .perror.print
-	add $16, %rsp
+	mov %rbp, %rsp
 	pop %rbp
 	ret
 .perror.open:
@@ -1191,39 +1626,72 @@ perror:
 	ret	
 .perror.exit:
 	mov $1, %rdi
-	jmp exit
+	jmp _exit
 
 exit:
 	mov $60, %rax
 	syscall
 
 .bss
-	.comm srootbuf, 4096
-	.comm ddir_fileb, 256
+	.comm srootbuf, 8192
+	.comm ddir_fileb, 8192
+	.comm e404pathb, 8192
+	.comm e403pathb, 8192
 
 .data
-	
+
 	argc: .quad 0
 	args: .quad 0
-	aport: .byte 0
-	asaddr: .byte 0
-	aroot: .byte 0
-	ddir_files: .byte 1
+	fls: .byte 8
+#	[arg] port = 0 << 0
+#	[arg] serv addr = 0 << 1
+#	[arg] root = 0 << 2
+#	[cfg] ddir_files = 1 << 3
+#	[arg] daemon_fl = 0 << 4
+#	[cfg] do_custom_404 = 0 << 5
+#	[cfg] do_custom_403 = 0 << 6
+
+	mpermission: .long 04
 	port: .word 99
 	saddr: .long 0
 	fsroot: .long 0
 	cfgpath: .quad dcfgpath
 	serv_root: .quad dserv_root
-	point: .asciz "."
+	p404path: .quad d404path
+	p403path: .quad d403path
 
+	d403path: .asciz "pages/403.html"
+	d404path: .asciz "pages/404.html"
 	dserv_root: .asciz "."
 	ddir_filep: .quad ddir_file
 	ddir_file: .asciz "index.html"
+	d403p:
+		.ascii "<html>\n"
+		.ascii "<head>\n"
+		.ascii "\t<title>Forbidden</title>\n"
+		.ascii "</head>\n"
+		.ascii "<body>\n\t<h1>403 Forbidden</h1>\n"
+		.ascii "\t<p>You have no access to file or directory on path: `\0'</p>\n"
+		.ascii "</body>\n"
+		.asciz "</html>\n"
+	d404p:
+		.ascii "<html>\n"
+		.ascii "<head>\n"
+		.ascii "\t<title>Not Found</title>\n"
+		.ascii "</head>\n"
+		.ascii "<body>\n\t<h1>404 Not found</h1>\n"
+		.ascii "\t<p>We can't found file or directory on path: `\0'</p>\n"
+		.ascii "</body>\n"
+		.asciz "</html>\n"
 	resp:
-		.ascii "HTTP/1.1 200 OK\n"
+		.ascii "HTTP/1.1 \0\n"
 		.ascii "Content-Length: \0\n"
 		.ascii "Content-Type: text/html\n"
 		.asciz "Connection: Closed\n\n"
+	resp_m:
+		.asciz "200 OK"
+		.asciz "404 Not Found"
+		.asciz "403 Forbidden"
 
 	dcfgpath: .asciz "config"
 	ERR_ERR: .asciz "ERROR: "
@@ -1231,13 +1699,14 @@ exit:
 	ERR_setsock: .asciz "ERROR: Failed to setsockopt.\n"
 	ERR_bind: .asciz "ERROR: Bind failed: "
 	ERR_open: .asciz "ERROR: Could not open `\0': "
-	ERR_ENOENT: .asciz "File does not exist.\n"	
+	ERR_ENOENT: .asciz "File or directory does not exist.\n"	
 	ERR_EADDRINUSE:	.asciz "Address in use.\n"
 	ERR_EADDRNOTAVAIL: .asciz "Interface does not exist, check your host_addr option.\n"
 	ERR_EACCES:	.asciz "Not enough permission.\n"
 	ERR_listen:	.asciz "ERROR: Listen failed.\n"
 	ERR_accept:	.asciz "ERROR: Accept failed.\n"
 	ERR_unexp_word: .asciz ":\0 Unexpected word: `\0'.\n"
+	ERR_unknown_arg: .asciz "Unknown argument: `\0'.\n"
 
 	ARGS:
 		.asciz "--config="
@@ -1245,6 +1714,9 @@ exit:
 		.asciz "--port="
 		.asciz "--host_addr="
 		.asciz "--root="
+		.asciz "-d"
+		.asciz "--daemonize"
+		.asciz "-h"
 
 	CFG_KEYWORDS:
 		.asciz "port="
@@ -1252,15 +1724,21 @@ exit:
 		.asciz "root="
 		.asciz "ddir_file="
 		.asciz "do_ddir_files="
-	
+		.asciz "do_custom_404="
+		.asciz "404_path="
+		.asciz "do_custom_403="
+		.asciz "403_path="
+		.asciz "min_permission="
+
 	TRUE: .asciz "true"
 	FALSE: .asciz "false"
 
 	USAGE:
-		.ascii "Usage: \0 <args>\n"
+		.ascii "Usage: \0 [<args>]\n"
 		.ascii "  Arguments:\n"
+		.ascii "    -d | --daemonize       Daemonize server.\n"
 		.ascii "    --root=<srv root dir>  Server root directory.\n"
 		.ascii "    --config=<cfg file>    Path to server config file.\n"
 		.ascii "    --port=<srv bind port> Server port to bind instead of the config port option.\n"
 		.ascii "    --host_addr=<ip>       Network interface to bind instead of the config option.\n"
-		.asciz "    --help                 Prints this message.\n"
+		.asciz "    -h | --help            Prints this message.\n"
