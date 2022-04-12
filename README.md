@@ -52,15 +52,15 @@ This parameter defines path to 404 http error page.
 
 ### 403_path=
 
-Same as [404](404_path)
+Same as [404](#404_path)
 
 ### do\_custom_404=
 
-This parameter toggles using of page described by [404_path option](404_path)
+This parameter toggles using of page described by [404_path option](#404_path)
 
 ### do\_custom_403=
 
-Same as [do\_custom_404](do\_custom_404)
+Same as [do\_custom_404](#do\_custom_404)
 
 ### min_permission=
 
