@@ -70,7 +70,7 @@ Same as [do\_custom_404](#do\_custom_404)
 ### min_permission=
 
 This parameter defines minimal permission for file openning. If file permission less than this option the server sends 403 error response.\
-Permission can be from 0(---) to 7(xwr). On the maximal number of minimal permission the server won't open any files. On the minimal number the server will properly open files with permission 1(--r) or higher.
+Permission can be from 0(---) to 7(xwr). On the minimal number of permission the server will properly open any files.
 
 ### Commentaries
 

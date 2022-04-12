@@ -381,7 +381,7 @@ client_thr:
 	movl -120(%rbp), %eax
 	andl $07, %eax
 	cmpl (mpermission), %eax
-	jle .client_thr.403
+	jl .client_thr.403
 	movl -120(%rbp), %eax
 	andl $0170000, %eax
 	cmpl $040000, %eax
@@ -411,7 +411,7 @@ client_thr:
 	mov -120(%rbp), %eax
 	andl $07, %eax
 	cmpl (mpermission), %eax
-	jle .client_thr.403
+	jl .client_thr.403
 .client_thr.pfile:
 	mov 8(%rbp), %rdi
 	mov $resp, %rsi
