@@ -334,6 +334,8 @@ sndfd: # edi -> esi
 	mov -148(%rbp), %rsi
 	mov $0, %rdx
 	syscall
+	cmp $0, %rax
+	jl .sndfd.disconn
 	cmpq $0, -96(%rbp)
 	ja .sndfd.2
 	xor %rax, %rax
@@ -345,11 +347,43 @@ sndfd: # edi -> esi
 	pop %rbp
 	ret
 
+sigpipe_handler:
+	mov -148(%rbp), %edi
+	mov $3, %rax
+	syscall
+	mov $3, %rax
+	mov -160(%rbp), %edi
+	syscall
+	mov $0, %rdi
+	ret
+
 client_thr:
 	push %rbp
 	mov %rsp, %rbp
 
 	sub $164, %rsp
+
+	mov 8(%rbp), %eax
+	lea -160(%rbp), %rdi # for sigpipe_handler compatibility
+	stosl
+	lea -156(%rbp), %rdi
+	mov $156, %rdx
+	xor %sil, %sil
+	call memset
+
+	mov $sigpipe_handler, %rax
+	stosq
+	mov $exit, %rax
+	lea -140(%rbp), %rdi
+	stosq
+	movq $67108864, -148(%rbp) # 1 << 26 = SA_RESTORER, segfault returns without this flag
+
+	mov $13, %rdi
+	lea -156(%rbp), %rsi
+	xor %rdx, %rdx
+	mov $8, %r10
+	mov $13, %rax
+	syscall
 
 	mov 8(%rbp), %rdi
 	call getcpath
@@ -436,7 +470,8 @@ client_thr:
 	mov -148(%rbp), %rdi
 	mov 8(%rbp), %rsi
 	call sndfd
-
+	cmp $-1, %rax
+	jle .client_thr.disconn
 	mov 8(%rbp), %rdi
 	call wait_client
 .client_thr.disconn:
@@ -551,10 +586,11 @@ client_thr:
 
 	movl -148(%rbp), %edi
 	mov 8(%rbp), %rsi
-	call sndfd	
+	call sndfd
+
 	mov 8(%rbp), %rdi
 	call wait_client
-	jmp .client_thr.closeconn
+	jmp .client_thr.disconn
 .client_thr.403:
 	mov 8(%rbp), %rdi
 	mov $resp, %rsi
@@ -632,13 +668,10 @@ client_thr:
 	mov 8(%rbp), %rsi
 	call sndfd
 
-	mov $3, %rax
-	mov -148(%rbp), %edi
-	syscall
 .client_thr.403.end:
 	mov 8(%rbp), %rdi
 	call wait_client
-	jmp .client_thr.closeconn
+	jmp .client_thr.disconn
 
 putc:
 	mov %dil, -1(%rsp)
@@ -705,6 +738,15 @@ memrev:
 	jmp .memrev.0
 .memrev.2:
 	pop %rbp
+	ret
+
+memset:
+	push %rdi
+	mov %rsi, %rax
+	mov %rdx, %rcx
+	rep stosb
+	pop %rdi
+	mov %rdi, %rax
 	ret
 
 memcmp:
