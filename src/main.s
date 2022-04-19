@@ -361,11 +361,12 @@ client_thr:
 	push %rbp
 	mov %rsp, %rbp
 
-	sub $164, %rsp
+	sub $160, %rsp
 
 	mov 8(%rbp), %eax
 	lea -160(%rbp), %rdi # for sigpipe_handler compatibility
 	stosl
+
 	lea -156(%rbp), %rdi
 	mov $156, %rdx
 	xor %sil, %sil
@@ -390,7 +391,7 @@ client_thr:
 	mov %rax, %rsp
 	cmp $-1, %rax
 	je .client_thr.closeconn
-	mov %rax, %rdi
+	mov %rsp, %rdi
 	call strlen
 	cmp $0, %rax
 	je .client_thr.root_dir
@@ -492,6 +493,7 @@ client_thr:
 	mov (fsroot), %rdi
 	mov $32, %rax
 	syscall
+	movq $0, -156(%rbp)
 	jmp .client_thr.200
 .client_thr.404:
 	testb $32, (fls)
@@ -513,10 +515,12 @@ client_thr:
 	jne .client_thr.404.0
 	testb $8, (fls)
 	jnz .client_thr.404.1
-	dec %rsp
+	sub $2, %rsp
 	mov %rsp, -156(%rbp)
 	mov -156(%rbp), %rdi
-	movb $0x2F, (%rdi)
+	movw $0x2f, %ax
+	stosw
+	jmp .client_thr.404.0
 .client_thr.404.1:
 	lea (ddir_filep), %rsi
 	lea -156(%rbp), %rdi
@@ -609,14 +613,25 @@ client_thr:
 	call strlen
 	mov %rax, -8(%rbp)
 	cmpq $0, -156(%rbp)
-	je .client_thr.403.up
+	je .client_thr.403.mrp
 	mov -156(%rbp), %rdi
 	call strlen
 	cmp $0, %rax
-	jne .client_thr.403.up
+	je .client_thr.403.mrp
+	jmp .client_thr.403.up
+.client_thr.403.mrp:
+	testb $8, (fls)
+	jz .client_thr.403.mkr
 	lea (ddir_filep), %rsi
 	lea -156(%rbp), %rdi
 	movsq
+	jmp .client_thr.403.up
+.client_thr.403.mkr:
+	sub $2, %rsp
+	mov %rsp, -156(%rbp)
+	mov -156(%rbp), %rdi
+	movw $0x2f, %ax
+	stosw
 .client_thr.403.up:
 	mov -156(%rbp), %rdi
 	call strlen
