@@ -6,7 +6,7 @@ ec(){
 	printf "  [%*d/$CNT] $*\n" ${#CNT} $idx
 	sh -c "$*"
 	exitcode=$?
-	if [ "$exitcode" != "0" ] ; then
+	if [ "$exitcode" != "0" ] && [ "$exitcode" != "" ]; then
 		echo Compilation failed
 		ec rm -rfv objs/
 		exit 1
@@ -24,7 +24,7 @@ done
 
 ASM=${ASM:=as}
 LD=${LD:=ld}
-SOURCES=(`ls src/*.s | sed 's/.s//; s/src\///'`)
+SOURCES=(`cd src/; ls *.s | sed 's/\.s//'`)
 #SOURCES=${SOURCES:="main"}
 #SOURCES=(${SOURCES[*]})
 CNT=${#SOURCES[*]}
