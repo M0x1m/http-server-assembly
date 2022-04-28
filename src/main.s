@@ -11,7 +11,7 @@
 
 .text
 strlen:
-	mov $0, %rax
+	xor %rax, %rax
 .strlen.0:
 	cmpb $0, (%rdi, %rax)
 	ja .strlen.1
@@ -28,12 +28,12 @@ new_thr:
 	push %rsi
 
 	mov $9, %rax
-	mov $0, %rdi
+	xor %rdi, %rdi
 	mov $65536, %rsi			# THREAD STACK SIZE declared here
 	mov $7, %rdx
 	mov $34, %r10
-	mov $0, %r8
-	mov $0, %r9
+	xor %r8, %r8
+	xor %r9, %r9
 	syscall
 
 	pop 65536-8(%rax)
@@ -45,9 +45,9 @@ new_thr:
 	mov $56, %rax
 	mov $0x00010f00, %rdi
 	mov -8(%rbp), %rsi
-	mov $0, %rdx
-	mov $0, %r10
-	mov $0, %r8
+	xor %rdx, %rdx
+	xor %r10, %r10
+	xor %r8, %r8
 	syscall
 	
 	cmp $0, %rax
@@ -63,7 +63,7 @@ strtou:
 	push %rbp
 	mov %rsp, %rbp
 	sub $8, %rsp
-	mov $0, %rax
+	xor %rax, %rax
 	cmp $0, %rsi
 	jle .strtou.0
 	mov %rsi, -8(%rbp)
@@ -72,7 +72,7 @@ strtou:
 	call strlen
 	mov %rax, %rsi
 	mov %rax, -8(%rbp)
-	mov $0, %rax
+	xor %rax, %rax
 .strtou.1:
 	cmp $0, %rsi
 	ja .strtou.2
@@ -82,7 +82,7 @@ strtou:
 	jb .strtou.3
 	cmpb $0x39, -1(%rdi, %rsi)
 	ja .strtou.3
-	mov $0, %rbx
+	xor %rbx, %rbx
 	movb -1(%rdi, %rsi), %bl
 	subb $0x30, %bl
 	push %rax
@@ -100,7 +100,7 @@ strtou:
 .strtou.5:
 	mov %rbx, %rax
 	mov $10, %rbx
-	mov $0, %rdx
+	xor %rdx, %rdx
 	mul %rbx
 	mov %rax, %rbx
 	jmp .strtou.4
@@ -110,11 +110,10 @@ strtou:
 	ret
 
 htons:
-	mov $8, %cl
 	mov %rdi, %rax
-	shl %cl, %rax
+	shl $8, %rax
 	mov $65535, %rbx
-	mov $0, %rdx
+	xor %rdx, %rdx
 	div %rbx
 	mov %rdx, %rax
 	ret
@@ -130,7 +129,7 @@ ulen:
 	push %rax
 	mov %rdi, %rax
 	mov $10, %rbx
-	mov $0, %rdx
+	xor %rdx, %rdx
 	div %rbx
 	mov %rax, %rdi
 	pop %rax
@@ -156,7 +155,7 @@ utostr:
 .utostr.1:
 	mov %rdi, %rax
 	mov $10, %rbx
-	mov $0, %rdx
+	xor %rdx, %rdx
 	div %rbx
 	mov %rax, %rdi
 	add $0x30, %rdx
@@ -270,6 +269,8 @@ getcpath:
 	call memrev
 	movb $0x2F, %sil
 	call skip_delim
+	call unhexhttp
+	mov %rax, %rdi
 	jmp .getcpath.fret
 .getcpath.errret:
 	mov $-1, %rax
@@ -282,6 +283,140 @@ getcpath:
 	je .getcpath.ret
 	movb $1, -9(%rbp)
 	jmp .getcpath.1
+
+unhexhttp:
+	push %rbp
+	mov %rsp, %rbp
+	mov %rdi, -8(%rbp)
+	movq $0, -16(%rbp)
+	sub $16, %rsp
+.unhexhttp.0:
+	mov -8(%rbp), %rdi
+	mov -16(%rbp), %rcx
+	cmpb $0, (%rdi, %rcx)
+	je .unhexhttp.1 
+	cmpb $37, (%rdi, %rcx)
+	jne .unhexhttp.2
+	lea 1(%rdi, %rcx), %rdi
+	call unhexdctob
+	mov -16(%rbp), %rcx
+	mov -8(%rbp), %rdi
+	cmp $0, %rax
+	jl .unhexhttp.0
+	mov %al, (%rdi, %rcx)
+	lea 3(%rdi, %rcx), %rdi
+	call strlen
+	lea 1(%rax), %rdx
+	mov $-2, %rsi
+	call memmov
+.unhexhttp.2:
+	incq -16(%rbp)
+	jmp .unhexhttp.0
+.unhexhttp.1:
+	mov -8(%rbp), %rax
+	mov %rbp, %rsp
+	pop %rbp
+	ret
+
+memmov:
+# rdi - ptr
+# rsi - offt
+# rdx - size
+# ret rax - rdi
+	push %rbp
+	mov %rsp, %rbp
+	mov %rdi, -8(%rbp)
+	mov %rsi, -16(%rbp)
+	mov %rdx, -24(%rbp)
+	sub $24, %rsp
+	cmp $0, %rsi
+	jl .memmov.0
+	std
+	add %rdx, %rdi
+.memmov.0:
+	mov %rdi, %rsi
+	add -16(%rbp), %rdi
+	mov -24(%rbp), %rcx
+	rep movsb
+	cld
+	mov -8(%rbp), %rdi
+	mov %rbp, %rsp
+	pop %rbp
+	ret
+
+ishexchar:
+	cmp $48, %dil
+	jb .ishexchar.n
+	cmp $57, %dil
+	ja .ishexchar.0
+	jmp .ishexchar.y
+.ishexchar.n:
+	xor %rax, %rax
+	ret
+.ishexchar.y:
+	mov $1, %rax
+	ret
+.ishexchar.0:
+	cmp $65, %dil
+	jb .ishexchar.n
+	cmp $70, %dil
+	ja .ishexchar.1
+	jmp .ishexchar.y
+.ishexchar.1:
+	cmp $97, %dil
+	jb .ishexchar.n
+	cmp $102, %dil
+	ja .ishexchar.n
+	jmp .ishexchar.y
+
+unhexc:
+	mov %dil, %al
+	cmp $57, %al
+	ja .unhexc.0
+	sub $48, %al
+	ret
+.unhexc.0:
+	cmp $70, %al
+	ja .unhexc.1
+	sub $55, %al
+	ret
+.unhexc.1:
+	sub $87, %al
+	ret
+
+unhexdctob:
+# rdi - pointer to hex chars
+# ret al - decoded byte
+	push %rbp
+	mov %rsp, %rbp
+	sub $1, %rsp
+	mov %rdi, %rbx
+	mov $2, %rcx
+.unhexdctob.l0:
+	mov -1(%rbx, %rcx), %dil
+	call ishexchar
+	cmp $0, %al
+	je .unhexdctob.errret
+	loop .unhexdctob.l0
+	mov $2, %rcx
+	movb $0, -1(%rbp)
+.unhexdctob.l1:
+	mov -1(%rbx, %rcx), %dil
+	call unhexc
+	cmp $1, %rcx
+	jne .unhexdctob.0
+	shl $4, %al
+.unhexdctob.0:
+	or %al, -1(%rbp)
+	loop .unhexdctob.l1
+	mov -1(%rbp), %al
+	jmp .unhexdctob.ret
+.unhexdctob.errret:
+	mov $-1, %rax
+.unhexdctob.ret:
+	mov %rbp, %rsp
+	pop %rbp
+	ret
 
 _exit: # group exit
 	mov $231, %rax
@@ -315,7 +450,7 @@ sndfd: # edi -> esi
 	movw $0, -150(%rbp)
 	lea -156(%rbp), %rdi
 	mov $1, %rsi
-	mov $0, %rdx
+	xor %rdx, %rdx
 	mov $7, %rax
 	syscall
 	testw $8216, -150(%rbp)
@@ -324,7 +459,7 @@ sndfd: # edi -> esi
 	mov -164(%rbp), %rdi
 	mov (%rdi), %edi
 	mov -148(%rbp), %rsi
-	mov $0, %rdx
+	xor %rdx, %rdx
 	syscall
 	cmp $0, %rax
 	jl .sndfd.disconn
@@ -345,7 +480,7 @@ sigpipe_handler:
 	syscall
 	mov -164(%rbp), %rdi
 	call sbuffclose
-	mov $0, %rdi
+	lea -65287(%rbp), %rdi
 	ret
 
 bsndstr:
@@ -444,11 +579,11 @@ client_thr:
 	mov %rdi, -156(%rbp) 		# requested file name pointer to string saved in -156(%rbp)
 	mov %rdi, %rsi
 	mov (fsroot), %rdi
-	mov $0, %rdx
+	xor %rdx, %rdx
 	mov $257, %rax
 	syscall
 	cmp $-13, %rax
-	je .client_thr.403
+	je .client_thr.403.oer
 	cmp $-2, %rax
 	je .client_thr.404
 .client_thr.200:
@@ -473,7 +608,7 @@ client_thr:
 	jz .client_thr.pfile
 	movl -148(%rbp), %edi
 	mov (ddir_filep), %rsi
-	mov $0, %rdx
+	xor %rdx, %rdx
 	mov $257, %rax
 	syscall
 	mov %rax, %r9
@@ -521,6 +656,8 @@ client_thr:
 	mov 8(%rbp), %rdi
 	call wait_client
 .client_thr.disconn:
+	cmpl $0, -148(%rbp)
+	je .client_thr.closeconn
 	mov $3, %rax
 	mov -148(%rbp), %rdi
 	syscall
@@ -598,7 +735,7 @@ client_thr:
 	jmp .client_thr.closeconn
 .client_thr.404.c:
 	mov (p404path), %rdi
-	mov $0, %rsi
+	xor %rsi, %rsi
 	mov $2, %rax
 	syscall
 
@@ -606,7 +743,7 @@ client_thr:
 	jg .client_thr.404.cc
 	mov %rdi, %rdx
 	mov $5, %rdi
-	mov $0, %sil
+	xor %sil, %sil
 	call perror
 .client_thr.404.cc:
 	movl %eax, -148(%rbp)
@@ -637,6 +774,8 @@ client_thr:
 	mov 8(%rbp), %rdi
 	call wait_client
 	jmp .client_thr.disconn
+.client_thr.403.oer:
+	movl $0, -148(%rbp)
 .client_thr.403:
 	mov -164(%rbp), %rdi
 	mov $resp, %rsi
@@ -702,7 +841,7 @@ client_thr:
 	jmp .client_thr.403.end
 .client_thr.403.c:
 	mov (p403path), %rdi
-	mov $0, %rsi
+	xor %rsi, %rsi
 	mov $2, %rax
 	syscall
 	cmp $0, %rax
@@ -775,7 +914,7 @@ memrev:
 	mov %rsp, %rbp
 	mov %rsi, %rax
 	mov $2, %rbx
-	mov $0, %rdx
+	xor %rdx, %rdx
 	div %rbx
 	incl %eax
 	movl %eax, -4(%rbp)
@@ -812,7 +951,7 @@ memcmp:
 	cld
 	repe cmpsb
 	jrcxz .memcmp.e 
-	mov $0, %rax
+	xor %rax, %rax
 	ret
 .memcmp.e:
 	mov $1, %rax
@@ -862,7 +1001,7 @@ streq:
 	ret
 .streq.ne:
 	pop %rdi
-	mov $0, %rax
+	xor %rax, %rax
 	ret
 
 skip_sts:
@@ -993,7 +1132,7 @@ unexp_word:
 	ret
 
 offt_to_delim:
-	mov $0, %rax
+	xor %rax, %rax
 .offt_to_delim.1:
 	cmpb $0, (%rdi, %rax)
 	je .offt_to_delim.ret
@@ -1056,18 +1195,18 @@ inet_addr:
 	mov %rax, %rsi
 	movb %al, -14(%rbp)
 	call strtou
-	mov $0, %rbx
+	xor %rbx, %rbx
 	movb -14(%rbp), %bl
 	add %rbx, -8(%rbp)
 	incq -8(%rbp)
-	mov $0, %rbx
+	xor %rbx, %rbx
 	movb -9(%rbp), %bl
 	movb %al, -13(%rbp, %rbx)
 	incb -9(%rbp)
 	cmpb $4, -9(%rbp)
 	jb .inet_addr.0
 .inet_addr.ret:
-	mov $0, %rax
+	xor %rax, %rax
 	movl -13(%rbp), %eax
 	mov %rbp, %rsp
 	pop %rbp
@@ -1162,7 +1301,7 @@ parse_cfg:
 	mov $1, %rsi
 	mov (cfgpath), %rdx
 	call perror
-	jmp .parse_cfg.ret
+	jmp .parse_cfg.errret
 .parse_cfg.opts:
 	mov -8(%rbp), %rdi
 	lea -24(%rbp), %rsi
@@ -1202,6 +1341,7 @@ parse_cfg:
 .parse_cfg.ret:
 	mov -8(%rbp), %rdi
 	call buffclose
+.parse_cfg.errret:
 	mov %rbp, %rsp
 	pop %rbp
 	ret
@@ -1213,7 +1353,7 @@ parse_cfg:
 	jnz .parse_cfg.opts
 	mov %rax, %rdi
 	mov %rax, %rsp
-	mov $0, %rsi
+	xor %rsi, %rsi
 	call strtou
 	movw %ax, (port)
 	jmp .parse_cfg.opts
@@ -1369,7 +1509,7 @@ parse_cfg:
 	call getval
 	mov %rax, %rsp
 	mov %rax, %rdi
-	mov $0, %rsi
+	xor %rsi, %rsi
 	call strtou
 	mov %eax, (mpermission)
 	jmp .parse_cfg.opts
@@ -1442,15 +1582,15 @@ parse_args:
 	jmp .parse_args.0
 .parse_args.usage:
 	mov $USAGE, %rsi
-	mov $1, %rdi
-	call sndstr
+	mov (stdout), %rdi
+	call bsndstr
 	mov (args), %rsi
-	call sndstr
+	call bsndstr
 	mov $USAGE, %rsi
 	mov $1, %edx
-	mov $1, %edi
-	call sndstrbyidx
-	mov $0, %rdi
+	call bsndstrbyidx
+	call sbuffflush
+	xor %rdi, %rdi
 	jmp exit
 	jmp .parse_args.0
 .parse_args.port:
@@ -1460,7 +1600,7 @@ parse_args:
 	addl -16(%rbp), %ebx
 	add %rbx, %rax
 	mov %rax, %rdi
-	mov $0, %rsi
+	xor %rsi, %rsi
 	call strtou
 	movw %ax, (port)
 	jmp .parse_args.0
@@ -1524,7 +1664,7 @@ _start.ndaemonize:
 	mov $41, %rax
 	mov $2, %rdi
 	mov $1, %rsi
-	mov $0, %rdx
+	xor %rdx, %rdx
 	syscall
 
 	movl %eax, -4(%rbp)
@@ -1593,7 +1733,7 @@ _start.ndaemonize:
 	add $32, %rsp
 
 	pop %rbp
-	mov $0, %rdi
+	xor %rdi, %rdi
 	jmp exit
 
 ._start.setsock_err:
@@ -1604,7 +1744,7 @@ _start.ndaemonize:
 	jmp perror
 ._start.sroot.err:
 	mov $5, %rdi
-	mov $0, %rsi
+	xor %rsi, %rsi
 	mov (serv_root), %rdx
 	jmp perror
 
@@ -1757,6 +1897,7 @@ exit:
 	d403p:
 		.ascii "<html>\n"
 		.ascii "<head>\n"
+		.ascii "\t<meta charset=\"UTF-8\">\n"
 		.ascii "\t<title>Forbidden</title>\n"
 		.ascii "</head>\n"
 		.ascii "<body>\n\t<h1>403 Forbidden</h1>\n"
@@ -1766,6 +1907,7 @@ exit:
 	d404p:
 		.ascii "<html>\n"
 		.ascii "<head>\n"
+		.ascii "\t<meta charset=\"UTF-8\">\n"
 		.ascii "\t<title>Not Found</title>\n"
 		.ascii "</head>\n"
 		.ascii "<body>\n\t<h1>404 Not found</h1>\n"
