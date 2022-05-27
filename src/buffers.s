@@ -62,7 +62,7 @@ _picktosrbuff:
 	testw $8216, 6(%rdi)
 	jnz ._picktosrbuff.errret
 	cmp $0, %rax
-	jle ._picktosrbuff.errret
+	jle ._picktosrbuff.timeo
 	add $8, %rsp
 	mov -8(%rbp), %rdi
 ._picktosrbuff.next:
@@ -91,6 +91,9 @@ _picktosrbuff:
 	jmp _procret
 ._picktosrbuff.errret:
 	mov $-1, %rax
+	jmp _procret
+._picktosrbuff.timeo:
+	mov $-2, %rax
 	jmp _procret
 
 _buffload:
@@ -173,6 +176,7 @@ _swwbuf:
 .globl sbuffwrite
 .globl sbuffflush
 .globl sbuffclose
+.globl sbuffread
 
 .extern memcpy
 
@@ -226,8 +230,7 @@ sbuffgetc:
 .sbuffgetc.nread:
 	mov -8(%rbp), %rdi
 	movzxw 4(%rdi), %rbx
-	xor %rax, %rax
-	mov 12(%rdi, %rbx), %al
+	movzxb 12(%rdi, %rbx), %rax
 	incw 4(%rdi)
 	mov -8(%rbp), %rdi
 	jmp _procret
@@ -334,6 +337,84 @@ sbuffclose:
 	mov $11, %rax
 	syscall
 	jmp _procret
+
+sbuffread:
+# Reads from stream up to %rdx bytes to %rsi
+# rdi - STREAMB pointer
+# rsi - buf
+# rdx - len
+# r10 - timeout to next read(-2 if you don't need any subsequent reads)
+# ret rax - count of bytes writed to buf
+	push %rbp
+	mov %rsp, %rbp
+	mov %rdi, -8(%rbp)
+	mov %rsi, -16(%rbp)
+	mov %rdx, -24(%rbp)
+	mov %r10, -32(%rbp)
+	sub $40, %rsp
+	movzxw 8(%rdi), %rax
+	sub 4(%rdi), %ax
+	cmp -24(%rbp), %rax
+	jl .sbuffread.0
+	mov -16(%rbp), %rdi
+	mov -8(%rbp), %rsi
+	mov -24(%rbp), %rdx
+	movzxw 4(%rsi), %rax
+	add %rax, %rsi
+	add $12, %rsi
+	call memcpy
+	mov -24(%rbp), %rax
+	mov -8(%rbp), %rsi
+	add %ax, 4(%rsi)
+.sbuffread.ret:
+	mov -8(%rbp), %rdi
+	jmp _procret
+.sbuffread.0:
+	mov -16(%rbp), %rdi
+	mov %rax, %rdx
+	mov %rax, -40(%rbp)
+	mov -8(%rbp), %rsi
+	movzxw 4(%rsi), %rax
+	add %rax, %rsi
+	add $12, %rsi
+	call memcpy
+	mov -40(%rbp), %rax
+	cmpq $-2, -32(%rbp)
+	je .sbuffread.ret
+	sub %rax, -24(%rbp)
+	add %rax, -16(%rbp)
+.sbuffread.1:
+	mov -32(%rbp), %rsi
+	mov -8(%rbp), %rdi
+	call _picktosrbuff
+	mov -8(%rbp), %rdi
+	movw $0, 4(%rdi)
+	cmp $0, %rax
+	jg .sbuffread.2
+	mov -40(%rbp), %rax
+	jmp .sbuffread.ret
+.sbuffread.2:
+	cmp -24(%rbp), %rax
+	jl .sbuffread.3
+	mov -24(%rbp), %rdx
+	mov -16(%rbp), %rdi
+	mov -8(%rbp), %rsi
+	add $12, %rsi
+	call memcpy
+	mov -40(%rbp), %rax
+	add -24(%rbp), %rax
+	jmp .sbuffread.ret
+.sbuffread.3:
+	mov -24(%rbp), %rdx
+	mov -16(%rbp), %rdi
+	mov -8(%rbp), %rsi
+	add $12, %rsi
+	call memcpy
+	mov -8(%rbp), %rsi
+	movzxw 8(%rsi), %rax
+	sub %rax, -24(%rbp)
+	add %rax, -16(%rbp)
+	jmp .sbuffread.1
 
 buffseek:
 # rdi - FILEB pointer
@@ -565,6 +646,6 @@ buffopen:
 	mov $3, %rax
 	mov -148(%rbp), %edi
 	syscall
-	mov $-1, %rax
+	mov $-21, %rax
 .buffopen.errret.1:
 	jmp _procret

@@ -14,11 +14,12 @@ ec(){
 	unset exitcode
 }
 
-UNDEBUG_FL="-s"
+UNDEBUG_FL=-s
 
 for arg in $@; do
 	if [ "$arg" == "--debug" ]; then
 		UNDEBUG_FL=""
+		DEBUG_FL="--defsym DBG=1"
 	fi
 done
 
@@ -34,7 +35,7 @@ objs=""
 ec mkdir objs
 
 for i in ${SOURCES[*]} ; do
-	ec $ASM -o objs/$i.o src/$i.s
+	ec $ASM -o objs/$i.o src/$i.s $DEBUG_FL
 	objs+="objs/$i.o "
 done
 

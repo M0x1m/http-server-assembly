@@ -8,3 +8,4 @@ ddir_file=main.s
 do_ddir_files=true
 do_custom_404=false
 min_permission=1
+#timeout=90000
