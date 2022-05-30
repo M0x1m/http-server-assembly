@@ -12,7 +12,7 @@
  - [x] Buffered IO
  - [x] Checking http method and protocol version in requests
  - [x] Proper partial content request serving
- - [ ] Directory listing
+ - [x] Directory listing
  - [ ] Mime-types
  - [ ] Root jail
  - [ ] Logging
@@ -49,6 +49,7 @@ If configuration file cannot be found, the server's parameters will set to built
   The server root directory: .\
   Default dir file: index.html\
   Do default dir files: yes\
+  Do directory list: yes\
   Timeout: 90 000ms\
   Minimal permission: 4
 
@@ -60,6 +61,7 @@ The server config parameters list:
   root=\<dir>\
   ddir\_file=\<file>\
   do\_ddir\_files=\<true|false>\
+  do\_dirlist=\<true|false>\
   do\_custom\_403=\<true|false>\
   do\_custom\_404=\<true|false>\
   403\_path=\<path>\
@@ -88,6 +90,11 @@ This parameter the defines default file name of file that will be opened in requ
 #### do\_ddir\_files
 
 This parameter toggles opening files in requested directories by [default file name](#ddir_file) when client requests a directory.
+
+#### do\_dirlist
+
+This parameter toggles sending HTML page of the directory content what client had requested.\
+HTML page will be make and send if default directory file cannot be found or default files are disabled.
 
 #### 404\_path
 

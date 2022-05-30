@@ -1,6 +1,13 @@
 .global _start
 .global memcpy
+.global getstrbyidx
+.global strlen
+.global strlenbyidx
+
 .extern buffopen
+.extern dirclose
+.extern fdiropen
+.extern genpage
 .extern buffclose
 .extern buffgetc
 .extern buffseek
@@ -306,7 +313,6 @@ getcpath:
 	call unhexhttp
 	mov $0x2F, %sil
 	call skip_delim
-	jmp .getcpath.fret
 .getcpath.fret:
 	mov %rbp, %rsp
 	pop %rbp
@@ -1108,6 +1114,8 @@ client_thr:
 	je .client_thr.403.oer
 	cmp $-2, %rax
 	je .client_thr.404
+	cmp $-1, %rax
+	jle .client_thr.404
 .client_thr.200:
 	movl %eax, -148(%rbp)
 	mov $5, %rax
@@ -1125,12 +1133,21 @@ client_thr:
 	jmp .client_thr.pfile
 .client_thr.dfile:
 	testb $8, (fls)
+	jnz .client_thr.dfile.1
+	testb $128, (fls)
 	jz .client_thr.404
+	jmp .client_thr.dirlist
+.client_thr.dfile.1:
 	movl -148(%rbp), %edi
 	mov (ddir_filep), %rsi
 	xor %rdx, %rdx
 	mov $257, %rax
 	syscall
+	testb $128, (fls)
+	jz .client_thr.dfile.0
+	cmp $0, %rax
+	jl .client_thr.dirlist
+.client_thr.dfile.0:
 	mov %rax, %r9
 	movl -148(%rbp), %edi
 	mov $3, %rax
@@ -1195,12 +1212,16 @@ client_thr:
 	mov -164(%rbp), %rdi
 	call sbuffclose
 
-	lea -65520(%rbp), %rdi
 	call thread_exit
 .client_thr.root_dir:
 	mov (fsroot), %rdi
-	mov $32, %rax
+	sub $2, %rsp
+	movw $46, (%rsp)
+	mov %rsp, %rsi
+	mov $65536, %rdx
+	mov $257, %rax
 	syscall
+	add $2, %rsp
 	movq $0, -156(%rbp)
 	jmp .client_thr.200
 .client_thr.404:
@@ -1219,11 +1240,11 @@ client_thr:
 	jne .client_thr.404.0
 	testb $8, (fls)
 	jnz .client_thr.404.1
-	sub $2, %rsp
+	dec %rsp
 	mov %rsp, -156(%rbp)
 	mov -156(%rbp), %rdi
-	movw $0x2f, %ax
-	stosw
+	xor %al, %al
+	stosb
 	jmp .client_thr.404.0
 .client_thr.404.1:
 	lea (ddir_filep), %rsi
@@ -1355,11 +1376,11 @@ client_thr:
 	movsq
 	jmp .client_thr.403.up
 .client_thr.403.mkr:
-	sub $2, %rsp
+	dec %rsp
 	mov %rsp, -156(%rbp)
 	mov -156(%rbp), %rdi
-	movw $0x2f, %ax
-	stosw
+	xor %al, %al
+	stosb
 .client_thr.403.up:
 	mov -156(%rbp), %rdi
 	call strlen
@@ -1719,6 +1740,66 @@ client_thr:
 	call bsndstrbyidx
 	call sbuffflush
 	jmp .client_thr.403.end
+.client_thr.dirlist:
+	cmpq $0, -156(%rbp)
+	jne .client_thr.dirlist.0
+	dec %rsp
+	movb $0, (%rsp)
+	mov %rsp, -156(%rbp)
+.client_thr.dirlist.0:
+	mov -164(%rbp), %rdi
+	mov $resp, %rsi
+	call bsndstr
+	mov $resp_m, %rsi
+	call bsndstr
+	mov $resp, %rsi
+	mov $1, %edx
+	call bsndstrbyidx
+	mov $6, %edx
+	call bsndstrbyidx
+	mov $types, %rsi
+	call bsndstr
+	mov $resp, %rsi
+	mov $7, %edx
+	call bsndstrbyidx
+	inc %edx
+	call bsndstrbyidx
+	mov -148(%rbp), %edi
+	call fdiropen
+	push %rax
+	mov -164(%rbp), %rdi
+	mov $dirlistp, %rsi
+	call bsndstr
+	mov -156(%rbp), %rsi
+	call bsndstr
+	mov $dirlistp, %rsi
+	mov $1, %edx
+	call bsndstrbyidx
+	mov -156(%rbp), %rsi
+	call bsndstr
+	mov $dirlistp, %rsi
+	mov $2, %edx
+	call bsndstrbyidx
+	sub $8, %rsp
+	mov 8(%rsp), %rdi
+	mov %rsp, %rsi
+	call genpage
+	push %rax
+	mov -164(%rbp), %rdi
+	mov %rax, %rsi
+	call bsndstr
+	mov 8(%rsp), %rsi
+	pop %rdi
+	mov $11, %rax
+	syscall
+	add $8, %rsp
+	mov -164(%rbp), %rdi
+	call sbuffflush
+	pop %rdi
+	call dirclose
+	mov 8(%rbp), %rdi
+	call wait_client
+	jmp .client_thr.closeconn
 
 cranges:
 # Computes total length of ranges
@@ -1750,13 +1831,21 @@ cranges:
 	ret
 
 thread_exit:
+	cmp $0x401000, %rbp
+	ja .thread_exit.0
+	jmp .thread_exit.1
+.thread_exit.0:
+	mov %rbp, %rsp
+	pop %rbp
+	add $8, %rsp
+.thread_exit.1:
+	lea -65536(%rsp), %rdi
 	mov $65536, %rsi
 	mov $4, %rdx
 	mov $28, %rax
 	syscall
 	xor %rdi, %rdi
-	call exit
-	ret
+	jmp exit
 
 skip_delim_off:
 	push %rdi
@@ -1778,11 +1867,9 @@ skip_delim:
 	jmp skip_delim
 
 strlenbyidx:
-	push %rdi
 	call getstrbyidx
 	mov %rax, %rdi
 	call strlen
-	pop %rdi
 	ret
 
 getstrbyidx:
@@ -2205,7 +2292,7 @@ parse_cfg:
 	mov %rax, -16(%rbp)
 	mov %rax, %rsp
 	mov $CFG_KEYWORDS, %rsi
-	mov $11, %rdx
+	mov $12, %rdx
 	call strinstrs
 	cmp $0, %ax
 	je .parse_cfg.port
@@ -2229,6 +2316,8 @@ parse_cfg:
 	je .parse_cfg.mpermission
 	cmp $10, %al
 	je .parse_cfg.timeout
+	cmp $11, %al
+	je .parse_cfg.do_dirlist
 	mov -16(%rbp), %rdi
 	mov -24(%rbp), %rsi
 	call unexp_word
@@ -2417,6 +2506,31 @@ parse_cfg:
 	xor %rsi, %rsi
 	call strtou
 	mov %rax, (timeout)
+	jmp .parse_cfg.opts
+.parse_cfg.do_dirlist:
+	mov -8(%rbp), %rdi
+	lea -24(%rbp), %rsi
+	call getval
+	mov %rax, %rsp
+	mov %rsp, %rdi
+	mov $TRUE, %rsi
+	call streq
+	cmpb $0, %al
+	je .parse_cfg.do_dirlist.0
+	orb $128, (fls)
+	jmp .parse_cfg.opts
+.parse_cfg.do_dirlist.0:
+	mov $FALSE, %rsi
+	call streq
+	cmpb $0, %al
+	je .parse_cfg.do_dirlist.1
+	andb $~128, (fls)
+	jmp .parse_cfg.opts
+.parse_cfg.do_dirlist.1:
+	decq -24(%rbp)
+	mov -24(%rbp), %rsi
+	mov %rsp, %rdi
+	call unexp_word
 	jmp .parse_cfg.opts
 
 parse_args:
@@ -2804,7 +2918,7 @@ exit:
 
 	argc: .quad 0
 	args: .quad 0
-	fls: .byte 8
+	fls: .byte 136
 #	[arg] port = 0 << 0
 #	[arg] serv addr = 0 << 1
 #	[arg] root = 0 << 2
@@ -2812,6 +2926,7 @@ exit:
 #	[arg] daemon_fl = 0 << 4
 #	[cfg] do_custom_404 = 0 << 5
 #	[cfg] do_custom_403 = 0 << 6
+#	[cfg] do_dirlist = 1 << 7
 
 	stdout: .quad 0
 	stderr: .quad 0
@@ -2831,10 +2946,15 @@ exit:
 	dserv_root: .asciz "."
 	ddir_filep: .quad ddir_file
 	ddir_file: .asciz "index.html"
+	dirlistp:
+		.ascii "<html><head>\n"
+		.ascii "<meta charset=\"UTF-8\">\n"
+		.ascii "<title>Index of /\0</title>\n"
+		.asciz "</head>\n<body><h1>Index of /\0</h1>"
 	d400p:
 		.ascii "<html><head>\n"
 		.ascii "<title>400 Bad request</title>\n"
-		.ascii "<head>\n"
+		.ascii "</head>\n"
 		.ascii "<body><h1 style=\"text-align: center\">Bad request</h1>\n"
 		.asciz "<p style=\"text-align: center\">\0HTTP version is not same."
 		.asciz "HTTP method is not supported, allowed or implemented."
@@ -2845,7 +2965,7 @@ exit:
 		.ascii "<title>403 Forbidden</title>"
 		.ascii "</head>\n"
 		.ascii "<body><h1>Forbidden</h1>\n"
-		.ascii "<p>You don't have permission to access this resource: `\0'</p><hr>\n"
+		.ascii "<p>You don't have permission to access this resource: `/\0'</p><hr>\n"
 		.asciz "</body></html>\n"
 	d404p:
 		.ascii "<html><head>\n"
@@ -2853,7 +2973,7 @@ exit:
 		.ascii "<title>404 Not Found</title>"
 		.ascii "</head>\n"
 		.ascii "<body><h1>Not Found</h1>\n"
-		.ascii "<p>The requested URL(`\0') was not found on this server.</p><hr>\n"
+		.ascii "<p>The requested URL /\0 was not found on this server.</p><hr>\n"
 		.asciz "</body></html>\n"
 	resp:
 		.asciz "HTTP/1.1 \0\r\n"
@@ -2914,6 +3034,7 @@ exit:
 		.asciz "403_path="
 		.asciz "min_permission="
 		.asciz "timeout="
+		.asciz "do_dirlist="
 
 	HTTP_M: .asciz "GET"
 	HTTPV:  .asciz "HTTP/1.1"
