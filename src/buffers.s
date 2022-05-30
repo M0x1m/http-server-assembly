@@ -251,7 +251,7 @@ sbuffwrite:
 	movzxw 10(%rdi), %rax
 	add %rax, -24(%rbp)
 .sbuffwrite.0:
-	cmpq $65536, -24(%rbp)
+	cmpq $65535, -24(%rbp)
 	jae .sbuffwrite.1
 	cmpq $0, -24(%rbp)
 	ja .sbuffwrite.2
@@ -260,21 +260,21 @@ sbuffwrite:
 .sbuffwrite.1:
 	mov -8(%rbp), %rax
 	movzxw 10(%rax), %rbx
-	mov $65536, %rdx
+	mov $65535, %rdx
 	sub %rbx, %rdx
-	sub $8, %rsp
-	mov %rdx, -48(%rbp)
+	push %rdx
 	mov -8(%rbp), %rdi
-	add %rbx, %rdi
-	add $65547, %rdi
+	movw $65535, 10(%rdi)
+	lea 65547(%rdi, %rbx), %rdi
 	mov -16(%rbp), %rsi
 	call memcpy
 	mov -8(%rbp), %rdi
 	call _swwbuf
-	mov -48(%rbp), %rbx
-	sub %rbx, -24(%rbp)
-	add $8, %rsp
+	pop %rbx
+	sub %rax, -24(%rbp)
 	add %rax, -32(%rbp)
+	add %rbx, -16(%rbp)
+	sub %rbx, -40(%rbp)
 	jmp .sbuffwrite.0
 .sbuffwrite.2:
 	mov -8(%rbp), %rdi

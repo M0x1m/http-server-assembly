@@ -26,12 +26,14 @@
 .globl diropen
 .globl fdiropen
 .globl genpage
+.globl _chkappend
 .extern getstrbyidx
 .extern memcpy
 .extern strlen
 .extern strlenbyidx
 
 _chkappend:
+# Extends mapped memory if not enough space for write
 # rdi - start addr ptr
 # rsi - curr addr ptr
 # rdx - curr length ptr
@@ -63,10 +65,11 @@ _chkappend:
 	mov -24(%rbp), %rdi
 	addq $65536, (%rdi)
 	mov -16(%rbp), %rdi
-	mov -8(%rbp), %rax
-	stosq
+	mov -8(%rbp), %rsi
+	movsq
 	mov -40(%rbp), %rax
-	add %rax, -8(%rdi)
+	mov -16(%rbp), %rdi
+	add %rax, (%rdi)
 	jmp _procret
 
 _procret:
@@ -240,6 +243,7 @@ dirread:
 	mov -8(%rbp), %rdi
 	mov %ax, 4(%rdi)
 	movw $0, 6(%rdi)
+	xor %rbx, %rbx
 	jmp .dirread.0
 
 dirclose:
