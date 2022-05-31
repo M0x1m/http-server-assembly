@@ -119,7 +119,7 @@ genpage:
 	mov $.genpage.s1, %rdi
 	call strlen
 	push %rax
-	lea 1(%rax), %r10
+	lea 2(%rax), %r10
 	mov $1, %esi
 	call strlenbyidx
 	add %rax, %r10
@@ -128,12 +128,31 @@ genpage:
 	call strlen
 	add %rax, %rax
 	add %rax, %r10
-	cmpb $4, -1(%rdi)
-	je .genpage.7
 	cmpb $10, -1(%rdi)
-	je .genpage.7
-	jmp .genpage.4
+	jne .genpage.6
+	push %r10
+	push %rdi
+	mov %rdi, %rsi
+	mov -8(%rbp), %rdi
+	movsxd (%rdi), %rdi
+	sub $144, %rsp
+	mov %rsp, %rdx
+	xor %r10, %r10
+	mov $262, %rax
+	syscall
+	mov 24(%rsp), %eax
+	add $144, %rsp
+	and $0170000, %eax
+	cmp $0040000, %eax
+	jne .genpage.7
+	mov (%rsp), %rdi
+	movb $4, -1(%rdi)
 .genpage.7:
+	pop %rdi
+	pop %r10
+.genpage.6:
+	cmpb $4, -1(%rdi)
+	jne .genpage.4
 	add $2, %r10
 .genpage.4:
 	lea -24(%rbp), %rdi
@@ -156,17 +175,13 @@ genpage:
 	mov (%rsp), %rax
 	mov -16(%rbp), %rdi
 	cmpb $4, 18(%rax)
-	je .genpage.6
-	cmpb $10, 18(%rax)
-	je .genpage.6
-	jmp .genpage.5
-.genpage.6:
+	jne .genpage.5
 	movb $47, (%rdi)
 	incq -16(%rbp)
 	inc %rdi	
 .genpage.5:
-	movb $62, (%rdi)
-	incq -16(%rbp)
+	movw $15906, (%rdi)
+	addq $2, -16(%rbp)
 	mov (%rsp), %rax
 	lea 19(%rax), %rdi
 	call strlen
@@ -213,7 +228,7 @@ genpage:
 	jmp _procret
 .data
 .genpage.s0: .asciz "<hr><pre>\n"
-.genpage.s1: .asciz "<a href=\0</a>\n"
+.genpage.s1: .asciz "<a href=\"./\0</a>\n"
 .genpage.s2: .asciz "</pre><hr>\n</html>\n"
 .text
 
