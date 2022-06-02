@@ -13,7 +13,7 @@
  - [x] Checking http method and protocol version in requests
  - [x] Proper partial content request serving
  - [x] Directory listing
- - [ ] Mime-types
+ - [x] Mime-types
  - [ ] Root jail
  - [ ] Logging
 
@@ -51,7 +51,9 @@ If configuration file cannot be found, the server's parameters will set to built
   Do default dir files: yes\
   Do directory list: yes\
   Timeout: 90 000ms\
-  Minimal permission: 4
+  Minimal permission: 4\
+  Show hidden files(i.e. files whose names start with '.') in directory listing: yes\
+  MIME-types file name: mime.types
 
 ## Configuration
 
@@ -67,7 +69,9 @@ The server config parameters list:
   403\_path=\<path>\
   404\_path=\<path>\
   min\_permission=\<num>\
-  timeout=\<num>
+  timeout=\<num>\
+  show\_hidden\_files=\<true|false>\
+  mimetypes\_path=\<path>
 
 #### port
 
@@ -122,7 +126,25 @@ The permission parameter can be from 0(---) to 7(xwr). If the permission is `0` 
 
 This parameter sets timeout in milliseconds for client request. If client timed out the server sends 408 error response.
 
-### Commentaries
+#### show\_hidden\_files
+
+Files whose names start with `.` are considered hidden. Thus this parameter determines showing the files in directory listing whose name start with `.`.
+
+#### mimetypes\_path
+
+This parameter defines the path to MIME-types file instead of the built-in path: `mime.types`
+
+Mime types file syntax:
+```
+# <- Commentary
+# Tabs and spaces allowed
+# Types divided by newlines
+# Type ------- Extensions
+text/x-c       c cc cxx cpp h hh hpp
+text/html      html htm
+```
+
+#### Commentaries
 
 A comment in the config file denfines by `#`.
 
