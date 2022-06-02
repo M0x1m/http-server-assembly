@@ -194,14 +194,10 @@ loadmtypes:
 .loadmtypes.notyp:
 	mov -8(%rbp), %rdi
 	call .perror.print
-	mov (stderr), %rdi
-	mov $58, %sil
-	call bputc
-	mov -32(%rbp), %rsi
-	call bsndustr
 	mov $ERR_notyps, %rdi
 	call .perror.fprint
-	jmp .loadmtypes.0
+	mov -24(%rbp), %rax
+	jmp _procret
 .loadmtypes.noext:
 	mov -8(%rbp), %rdi
 	call .perror.print
@@ -304,6 +300,8 @@ loadmtypes:
 	mov -16(%rbp), %rdi
 	call buffclose
 	mov -24(%rbp), %rax
+	cmpl $0, (%rax)
+	je .loadmtypes.notyp
 	jmp _procret
 
 .data
