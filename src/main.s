@@ -3,7 +3,19 @@
 .global getstrbyidx
 .global strlen
 .global strlenbyidx
+.global skip_sts
+.global stderr
+.global .perror.print
+.global .perror.fprint
+.global bputc
+.global streq
+.global bsndustr
+.global getval
+.global fls
+.global bsndstrbyidx
 
+.extern loadmtypes
+.extern findtype
 .extern buffopen
 .extern dirclose
 .extern fdiropen
@@ -16,6 +28,7 @@
 .extern sbuffwrite
 .extern sbuffflush 
 .extern sbuffread
+.extern getext
 
 .text
 strlen:
@@ -1185,8 +1198,27 @@ client_thr:
 	call bsndstrbyidx
 	mov $6, %edx
 	call bsndstrbyidx
+	mov -156(%rbp), %rdi
+	call getext
+	cmp $0, %rax
+	jle .client_thr.pfile.0
+	mov %rax, %rdi
+	mov (mtypesp), %rsi
+	call findtype
+	cmp $0, %rax
+	jle .client_thr.pfile.0
+	mov %rax, %rsi
+	jmp .client_thr.pfile.1
+.client_thr.pfile.0:
 	mov $types, %rsi
+	mov $2, %edx
+	mov -164(%rbp), %rdi
+	call bsndstrbyidx
+	jmp .client_thr.pfile.2
+.client_thr.pfile.1:
+	mov -164(%rbp), %rdi
 	call bsndstr
+.client_thr.pfile.2:
 	mov $resp, %rsi
 	mov $7, %edx
 	call bsndstrbyidx
@@ -1975,25 +2007,22 @@ streq:
 skip_sts:
 	push %rbp
 	mov %rsp, %rbp
-	movb $0, -2(%rbp)
-	movl $0, -6(%rbp)
-	mov %rsi, -14(%rbp)
-	sub $14, %rsp
+	movb $0, -9(%rbp)
+	mov %rsi, -8(%rbp)
+	sub $9, %rsp
 .skip_sts.0:
 	call buffgetc
-	mov %al, -1(%rbp)
 	cmp $-1, %rax
 	jle .skip_sts.ret
-	incl -6(%rbp)
-	cmpb $1, -2(%rbp)
+	cmpb $1, -9(%rbp)
 	je .skip_sts.2	
-	cmpb $35, -1(%rbp)
+	cmpb $35, %al
 	je .skip_sts.1
-	cmpb $0x20, -1(%rbp)
+	cmpb $0x20, %al
 	je .skip_sts.0
-	cmpb $10, -1(%rbp)
+	cmpb $10, %al
 	je .skip_sts.3
-	cmpb $0x9, -1(%rbp)
+	cmpb $0x9, %al
 	je .skip_sts.0
 	mov $-1, %rsi
 	mov $1, %edx
@@ -2003,14 +2032,17 @@ skip_sts:
 	pop %rbp
 	ret
 .skip_sts.1:
-	movb $1, -2(%rbp)
+	movb $1, -9(%rbp)
+	mov -8(%rbp), %rax
+	incq (%rax)
 	jmp .skip_sts.0
 .skip_sts.2:
-	cmpb $10, -1(%rbp)
+	cmpb $10, %al
 	jne .skip_sts.0
-	movb $0, -2(%rbp)
+	movb $0, -9(%rbp)
+	jmp .skip_sts.0
 .skip_sts.3:
-	mov -14(%rbp), %rax
+	mov -8(%rbp), %rax
 	incq (%rax)
 	jmp .skip_sts.0
 
@@ -2211,8 +2243,9 @@ getval:
 	pop %rbp
 	ret
 .getval.2:
-	mov -12(%rbp), %rax
-	incq (%rax)
+	mov $1, %edx
+	mov $-1, %rsi
+	call buffseek
 .getval.1:
 	movb $0, -13(%rbp)
 	lea 1(%rsp), %rdi
@@ -2257,7 +2290,7 @@ strinstrs:
 	cmpb $0, %al
 	je .strinstrs.0
 	decl -24(%rbp)
-	movl -24(%rbp), %eax
+	movsxd -24(%rbp), %eax
 .strinstrs.ret:
 	mov %rbp, %rsp
 	pop %rbp
@@ -2267,7 +2300,8 @@ parse_cfg:
 	push %rbp
 	mov %rsp, %rbp
 	movq $1, -24(%rbp)
-	sub $24, %rsp
+	sub $32, %rsp
+	mov %rsp, -32(%rbp)
 	mov (cfgpath), %rdi
 	xor %rsi, %rsi
 	xor %rdx, %rdx
@@ -2283,41 +2317,46 @@ parse_cfg:
 	call perror
 	jmp .parse_cfg.errret
 .parse_cfg.opts:
+	mov -32(%rbp), %rsp
 	mov -8(%rbp), %rdi
 	lea -24(%rbp), %rsi
 	call getvar
 	cmp $0, %rax
 	jl .parse_cfg.ret
 	mov %rax, %rdi
-	mov %rax, -16(%rbp)
-	mov %rax, %rsp
+	mov %rdi, -16(%rbp)
+	mov %rdi, %rsp
 	mov $CFG_KEYWORDS, %rsi
-	mov $12, %rdx
+	mov $14, %rdx
 	call strinstrs
-	cmp $0, %ax
+	cmp $0, %rax
 	je .parse_cfg.port
-	cmp $1, %ax
+	cmp $1, %rax
 	je .parse_cfg.addr
-	cmp $2, %ax
+	cmp $2, %rax
 	je .parse_cfg.root
-	cmp $3, %ax
+	cmp $3, %rax
 	je .parse_cfg.ddir_file
-	cmp $4, %ax
+	cmp $4, %rax
 	je .parse_cfg.do_ddir_files
-	cmp $5, %ax
+	cmp $5, %rax
 	je .parse_cfg.do_custom_404
-	cmp $6, %al
+	cmp $6, %rax
 	je .parse_cfg.404_path
-	cmp $7, %al
+	cmp $7, %rax
 	je .parse_cfg.do_custom_403
-	cmp $8, %al
+	cmp $8, %rax
 	je .parse_cfg.403_path
-	cmp $9, %al
+	cmp $9, %rax
 	je .parse_cfg.mpermission
-	cmp $10, %al
+	cmp $10, %rax
 	je .parse_cfg.timeout
-	cmp $11, %al
+	cmp $11, %rax
 	je .parse_cfg.do_dirlist
+	cmp $12, %rax
+	je .parse_cfg.mtypes
+	cmp $13, %rax
+	je .parse_cfg.show_hidden_files
 	mov -16(%rbp), %rdi
 	mov -24(%rbp), %rsi
 	call unexp_word
@@ -2361,13 +2400,15 @@ parse_cfg:
 	mov %rax, %rdi
 	mov %rax, %rsp
 	call strlen
-	mov %rax, %rdx
+	lea 1(%rax), %rdx
 	mov %rdi, %rsi
-	mov $srootbuf, %rdi
+	mov $pathesb, %rdi
+	add (patheso), %rdi
 	call memcpy
+	mov %rdi, %rax
 	lea (serv_root), %rdi
-	mov $srootbuf, %rax
 	stosq
+	add %rdx, (patheso)
 	jmp .parse_cfg.opts
 .parse_cfg.do_ddir_files:
 	mov -8(%rbp), %rdi
@@ -2390,7 +2431,6 @@ parse_cfg:
 	jmp .parse_cfg.opts
 .parse_cfg.do_ddir_files.1:
 	mov %rsp, %rdi
-	decq -24(%rbp)
 	mov -24(%rbp), %rsi
 	call unexp_word
 	jmp .parse_cfg.opts
@@ -2401,11 +2441,13 @@ parse_cfg:
 	mov %rax, %rsp
 	mov %rsp, %rdi
 	call strlen
-	mov %rax, %rdx
-	mov $ddir_fileb, %rdi
+	lea 1(%rax), %rdx
+	mov $pathesb, %rdi
+	add (patheso), %rdi
 	mov %rsp, %rsi
 	call memcpy
 	movq %rdi, (ddir_filep)
+	add %rdx, (patheso)
 	jmp .parse_cfg.opts
 .parse_cfg.do_custom_404:
 	mov -8(%rbp), %rdi
@@ -2427,7 +2469,6 @@ parse_cfg:
 	andb $~32, (fls)
 	jmp .parse_cfg.opts
 .parse_cfg.do_custom_404.1:
-	decq -24(%rbp)
 	mov -24(%rbp), %rsi
 	mov %rsp, %rdi
 	call unexp_word
@@ -2441,11 +2482,13 @@ parse_cfg:
 	mov %rax, %rsp
 	mov %rax, %rdi
 	call strlen
-	mov %rax, %rdx
+	lea 1(%rax), %rdx
 	mov %rsp, %rsi
-	mov $e404pathb, %rdi
+	mov $pathesb, %rdi
+	add (patheso), %rdi
 	call memcpy
 	mov %rdi, (p404path)
+	add %rdx, (patheso)
 	jmp .parse_cfg.opts
 .parse_cfg.do_custom_403:
 	mov -8(%rbp), %rdi
@@ -2467,7 +2510,6 @@ parse_cfg:
 	andb $~64, (fls)
 	jmp .parse_cfg.opts
 .parse_cfg.do_custom_403.1:
-	decq -24(%rbp)
 	mov -24(%rbp), %rsi
 	mov %rsp, %rdi
 	call unexp_word
@@ -2481,11 +2523,13 @@ parse_cfg:
 	mov %rax, %rsp
 	mov %rax, %rdi
 	call strlen
-	mov %rax, %rdx
+	lea 1(%rax), %rdx
 	mov %rsp, %rsi
-	mov $e403pathb, %rdi
+	mov $pathesb, %rdi
+	add (patheso), %rdi
 	call memcpy
 	mov %rdi, (p403path)
+	add %rdx, (patheso)
 	jmp .parse_cfg.opts
 .parse_cfg.mpermission:
 	mov -8(%rbp), %rdi
@@ -2527,7 +2571,47 @@ parse_cfg:
 	andb $~128, (fls)
 	jmp .parse_cfg.opts
 .parse_cfg.do_dirlist.1:
-	decq -24(%rbp)
+	mov -24(%rbp), %rsi
+	mov %rsp, %rdi
+	call unexp_word
+	jmp .parse_cfg.opts
+.parse_cfg.mtypes:
+	mov -8(%rbp), %rdi
+	lea -24(%rbp), %rsi
+	call getval
+	mov %rax, %rsp
+	mov %rsp, %rdi
+	call strlen
+	lea 1(%rax), %rdx
+	mov %rsp, %rsi
+	mov $pathesb, %rdi
+	add (patheso), %rdi
+	call memcpy
+	mov %rdi, %rax
+	mov $mtypes, %rdi
+	stosq
+	add %rdx, (patheso)
+	jmp .parse_cfg.opts
+.parse_cfg.show_hidden_files:
+	mov -8(%rbp), %rdi
+	lea -24(%rbp), %rsi
+	call getval
+	mov %rax, %rsp
+	mov %rsp, %rdi
+	mov $TRUE, %rsi
+	call streq
+	cmpb $0, %al
+	je .parse_cfg.show_hidden_files.0
+	orw $256, (fls)
+	jmp .parse_cfg.opts
+.parse_cfg.show_hidden_files.0:
+	mov $FALSE, %rsi
+	call streq
+	cmpb $0, %al
+	je .parse_cfg.show_hidden_files.1
+	andw $~256, (fls)
+	jmp .parse_cfg.opts
+.parse_cfg.show_hidden_files.1:
 	mov -24(%rbp), %rsi
 	mov %rsp, %rdi
 	call unexp_word
@@ -2563,21 +2647,21 @@ parse_args:
 	mov $ARGS, %rsi
 	mov $8, %rdx
 	call strinstrs
-	cmp $0, %al
+	cmp $0, %rax
 	je .parse_args.cfg
-	cmp $1, %al
+	cmp $1, %rax
 	je .parse_args.usage
-	cmp $2, %al
+	cmp $2, %rax
 	je .parse_args.port
-	cmp $3, %al
+	cmp $3, %rax
 	je .parse_args.host_addr
-	cmp $4, %al
+	cmp $4, %rax
 	je .parse_args.root
-	cmp $5, %al
+	cmp $5, %rax
 	je .parse_args.daemonize
-	cmp $6, %al
+	cmp $6, %rax
 	je .parse_args.daemonize	
-	cmp $7, %al
+	cmp $7, %rax
 	je .parse_args.usage
 	mov $ERR_unknown_arg, %rdi
 	call .perror.print
@@ -2664,6 +2748,17 @@ _start:
 
 	call parse_args
 	call parse_cfg
+
+	mov (mtypes), %rdi
+	call loadmtypes
+	cmp $-1, %rax
+	jg ._start.0
+	mov $5, %rdi
+	mov $0, %sil
+	mov (mtypes), %rdx
+	call perror
+._start.0:
+	mov %rax, (mtypesp)
 
 	testb $16, (fls)
 	jz _start.ndaemonize
@@ -2909,16 +3004,13 @@ exit:
 	syscall
 
 .bss
-	.comm srootbuf, 8192
-	.comm ddir_fileb, 8192
-	.comm e404pathb, 8192
-	.comm e403pathb, 8192
+	.comm pathesb, 32767
 
 .data
 
 	argc: .quad 0
 	args: .quad 0
-	fls: .byte 136
+	fls: .byte 136, 1
 #	[arg] port = 0 << 0
 #	[arg] serv addr = 0 << 1
 #	[arg] root = 0 << 2
@@ -2927,9 +3019,11 @@ exit:
 #	[cfg] do_custom_404 = 0 << 5
 #	[cfg] do_custom_403 = 0 << 6
 #	[cfg] do_dirlist = 1 << 7
+#   [cfg] show_hidden_files = 1 << 8
 
 	stdout: .quad 0
 	stderr: .quad 0
+	patheso: .quad 0 
 
 	timeout: .quad 90000
 	mpermission: .long 04
@@ -2940,7 +3034,10 @@ exit:
 	serv_root: .quad dserv_root
 	p404path: .quad d404path
 	p403path: .quad d403path
+	mtypes: .quad dmtypes
+	mtypesp: .quad 0
 
+	dmtypes: .asciz "mime.types"
 	d403path: .asciz "pages/403.html"
 	d404path: .asciz "pages/404.html"
 	dserv_root: .asciz "."
@@ -2992,6 +3089,7 @@ exit:
 	types:
 		.asciz "text/html"
 		.asciz "multipart/byteranges; boundary=STR_SEP"
+		.asciz "application/octet-stream"
 	strsep: .asciz "STR_SEP"
 	ddash: .asciz "--"
 
@@ -3035,6 +3133,8 @@ exit:
 		.asciz "min_permission="
 		.asciz "timeout="
 		.asciz "do_dirlist="
+		.asciz "mimetypes_path="
+		.asciz "show_hidden_files="
 
 	HTTP_M: .asciz "GET"
 	HTTPV:  .asciz "HTTP/1.1"

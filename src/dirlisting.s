@@ -114,6 +114,12 @@ genpage:
 	jle .genpage.1
 	cmpw $46, 19(%rax)
 	je .genpage.2
+	cmpw $11822, 19(%rax)
+	je .genpage.0
+	cmpb $46, 19(%rax)
+	jne .genpage.0
+	testw $256, (fls)
+	jz .genpage.2
 .genpage.0:
 	push %rax
 	mov $.genpage.s1, %rdi
