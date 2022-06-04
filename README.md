@@ -154,7 +154,7 @@ This parameter toggles sorting by name in directory listing.
 
 #### Commentaries
 
-A comment in the config file denfines by `#`.
+A comment in the config file defines by `#`.
 
 #### Example
 ```
