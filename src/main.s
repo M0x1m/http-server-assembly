@@ -1198,10 +1198,13 @@ client_thr:
 	call bsndstrbyidx
 	mov $6, %edx
 	call bsndstrbyidx
+	cmpq $0, -156(%rbp)
+	je .client_thr.pfile.4
 	mov -156(%rbp), %rdi
 	call strlen
 	cmpb $47, -1(%rdi, %rax)
 	jne .client_thr.pfile.3
+.client_thr.pfile.4:
 	mov (ddir_filep), %rdi
 .client_thr.pfile.3:
 	call getext
@@ -1275,18 +1278,12 @@ client_thr:
 
 	cmpq $0, -156(%rbp)
 	jne .client_thr.404.0
-	testb $8, (fls)
-	jnz .client_thr.404.1
 	dec %rsp
 	mov %rsp, -156(%rbp)
 	mov -156(%rbp), %rdi
 	xor %al, %al
 	stosb
 	jmp .client_thr.404.0
-.client_thr.404.1:
-	lea (ddir_filep), %rsi
-	lea -156(%rbp), %rdi
-	movsq
 .client_thr.404.0:
 	mov $resp, %rsi
 	mov -164(%rbp), %rdi
@@ -1399,19 +1396,7 @@ client_thr:
 	call strlen
 	mov %rax, -8(%rbp)
 	cmpq $0, -156(%rbp)
-	je .client_thr.403.mrp
-	mov -156(%rbp), %rdi
-	call strlen
-	cmp $0, %rax
-	je .client_thr.403.mrp
-	jmp .client_thr.403.up
-.client_thr.403.mrp:
-	testb $8, (fls)
-	jz .client_thr.403.mkr
-	lea (ddir_filep), %rsi
-	lea -156(%rbp), %rdi
-	movsq
-	jmp .client_thr.403.up
+	jne .client_thr.403.up
 .client_thr.403.mkr:
 	dec %rsp
 	mov %rsp, -156(%rbp)
@@ -1654,10 +1639,13 @@ client_thr:
 	call bsndstrbyidx
 	jmp .client_thr.206.7
 .client_thr.206.6:
+	cmpq $0, -156(%rbp)
+	je .client_thr.206.18
 	mov -156(%rbp), %rdi
 	call strlen
 	cmpb $47, -1(%rdi, %rax)
 	jne .client_thr.206.12
+.client_thr.206.18:
 	mov (ddir_filep), %rdi
 .client_thr.206.12:
 	call getext
@@ -1743,10 +1731,13 @@ client_thr:
 	call bsndstrbyidx
 	inc %edx
 	call bsndstrbyidx
+	cmpq $0, -156(%rbp)
+	je .client_thr.206.19
 	mov -156(%rbp), %rdi
 	call strlen
 	cmpb $47, -1(%rdi, %rax)
 	jne .client_thr.206.14
+.client_thr.206.19:
 	mov (ddir_filep), %rdi
 .client_thr.206.14:
 	call getext
