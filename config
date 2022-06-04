@@ -11,4 +11,5 @@ min_permission=1
 #timeout=90000
 do_dirlist=true
 #mimetypes_path=mime.types
-#show_hidden_files=false
+show_hidden_files=true
+dirlist_sorting=true

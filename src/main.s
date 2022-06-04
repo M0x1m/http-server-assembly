@@ -1199,6 +1199,11 @@ client_thr:
 	mov $6, %edx
 	call bsndstrbyidx
 	mov -156(%rbp), %rdi
+	call strlen
+	cmpb $47, -1(%rdi, %rax)
+	jne .client_thr.pfile.3
+	mov (ddir_filep), %rdi
+.client_thr.pfile.3:
 	call getext
 	cmp $0, %rax
 	jle .client_thr.pfile.0
@@ -1649,12 +1654,34 @@ client_thr:
 	call bsndstrbyidx
 	jmp .client_thr.206.7
 .client_thr.206.6:
+	mov -156(%rbp), %rdi
+	call strlen
+	cmpb $47, -1(%rdi, %rax)
+	jne .client_thr.206.12
+	mov (ddir_filep), %rdi
+.client_thr.206.12:
+	call getext
+	cmp $0, %rax
+	jle .client_thr.206.13
+	mov %rax, %rdi
+	mov (mtypesp), %rsi
+	call findtype
+	cmp $0, %rax
+	jle .client_thr.206.13
+	mov -164(%rbp), %rdi
+	mov %rax, %rsi
 	call bsndstr
+	jmp .client_thr.206.7
+.client_thr.206.13:
+	mov -164(%rbp), %rdi
+	mov $types, %rsi
+	mov $2, %edx
+	call bsndstrbyidx
 .client_thr.206.7:
 	mov $7, %edx
 	mov $resp, %rsi
 	call bsndstrbyidx
-	inc %edx
+	mov $8, %edx
 	call bsndstrbyidx
 	call sbuffflush
 	cmpw $1, -174(%rbp)
@@ -1716,8 +1743,32 @@ client_thr:
 	call bsndstrbyidx
 	inc %edx
 	call bsndstrbyidx
+	mov -156(%rbp), %rdi
+	call strlen
+	cmpb $47, -1(%rdi, %rax)
+	jne .client_thr.206.14
+	mov (ddir_filep), %rdi
+.client_thr.206.14:
+	call getext
+	cmp $0, %rax
+	jle .client_thr.206.15
+	mov %rax, %rdi
+	mov (mtypesp), %rsi
+	call findtype
+	cmp $0, %rax
+	jle .client_thr.206.15
+	mov %rax, %rsi
+	jmp .client_thr.206.16
+.client_thr.206.15:
 	mov $types, %rsi
+	mov $2, %edx
+	mov -164(%rbp), %rdi
+	call bsndstrbyidx
+	jmp .client_thr.206.17
+.client_thr.206.16:
+	mov -164(%rbp), %rdi
 	call bsndstr
+.client_thr.206.17:
 	mov $resp, %rsi
 	mov $7, %edx
 	call bsndstrbyidx
@@ -1799,6 +1850,13 @@ client_thr:
 	mov -148(%rbp), %edi
 	call fdiropen
 	push %rax
+	testw $512, (fls)
+	jz .client_thr.dirlist.1
+	mov %rsp, %rdi
+	call dirfload
+	mov (%rsp), %rdi
+	call sortdir 
+.client_thr.dirlist.1:
 	mov -164(%rbp), %rdi
 	mov $dirlistp, %rsi
 	call bsndstr
@@ -2327,7 +2385,7 @@ parse_cfg:
 	mov %rdi, -16(%rbp)
 	mov %rdi, %rsp
 	mov $CFG_KEYWORDS, %rsi
-	mov $14, %rdx
+	mov $15, %rdx
 	call strinstrs
 	cmp $0, %rax
 	je .parse_cfg.port
@@ -2357,6 +2415,8 @@ parse_cfg:
 	je .parse_cfg.mtypes
 	cmp $13, %rax
 	je .parse_cfg.show_hidden_files
+	cmp $14, %rax
+	je .parse_cfg.dirlist_sorting
 	mov -16(%rbp), %rdi
 	mov -24(%rbp), %rsi
 	call unexp_word
@@ -2612,6 +2672,30 @@ parse_cfg:
 	andw $~256, (fls)
 	jmp .parse_cfg.opts
 .parse_cfg.show_hidden_files.1:
+	mov -24(%rbp), %rsi
+	mov %rsp, %rdi
+	call unexp_word
+	jmp .parse_cfg.opts
+.parse_cfg.dirlist_sorting:
+	mov -8(%rbp), %rdi
+	lea -24(%rbp), %rsi
+	call getval
+	mov %rax, %rsp
+	mov %rsp, %rdi
+	mov $TRUE, %rsi
+	call streq
+	cmpb $0, %al
+	je .parse_cfg.dirlist_sorting.0
+	orw $512, (fls)
+	jmp .parse_cfg.opts
+.parse_cfg.dirlist_sorting.0:
+	mov $FALSE, %rsi
+	call streq
+	cmpb $0, %al
+	je .parse_cfg.dirlist_sorting.1
+	andw $~512, (fls)
+	jmp .parse_cfg.opts
+.parse_cfg.dirlist_sorting.1:
 	mov -24(%rbp), %rsi
 	mov %rsp, %rdi
 	call unexp_word
@@ -3010,7 +3094,7 @@ exit:
 
 	argc: .quad 0
 	args: .quad 0
-	fls: .byte 136, 1
+	fls: .byte 136, 3
 #	[arg] port = 0 << 0
 #	[arg] serv addr = 0 << 1
 #	[arg] root = 0 << 2
@@ -3020,6 +3104,7 @@ exit:
 #	[cfg] do_custom_403 = 0 << 6
 #	[cfg] do_dirlist = 1 << 7
 #   [cfg] show_hidden_files = 1 << 8
+#   [cfg] dirlist_sorting = 1 << 9
 
 	stdout: .quad 0
 	stderr: .quad 0
@@ -3135,6 +3220,7 @@ exit:
 		.asciz "do_dirlist="
 		.asciz "mimetypes_path="
 		.asciz "show_hidden_files="
+		.asciz "dirlist_sorting="
 
 	HTTP_M: .asciz "GET"
 	HTTPV:  .asciz "HTTP/1.1"

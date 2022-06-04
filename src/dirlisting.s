@@ -13,9 +13,10 @@
 # };
 
 # struct dirent{
-#	uint32_t dirfd; // file descriptor of listed directory
-#	uint16_t size;  // size of this structure
-#	uint16_t offt;  // offset to current element in el
+#	uint32_t dirfd;  // file descriptor of listed directory
+#	uint32_t map_sz; // mapped memory size for this structure
+#	uint32_t size;   // size of el structures
+#	uint32_t offt;   // offset to current element in el
 #	struct linux_dirent64 el[];
 # };
 
@@ -27,10 +28,27 @@
 .globl fdiropen
 .globl genpage
 .globl _chkappend
+.globl sortdir
+.globl dirfload
 .extern getstrbyidx
 .extern memcpy
 .extern strlen
 .extern strlenbyidx
+
+memcpy8:
+# Copies buffers with modulo 8
+# rdi - destination ptr
+# rsi - source ptr
+# rdx - size % 8 = 0
+	mov %rdi, %rax
+	mov %rdx, %rcx
+.memcpy8:
+	movsq
+	sub $8, %rcx
+	cmp $0, %rcx
+	jg .memcpy8
+	mov %rax, %rdi
+	ret
 
 _chkappend:
 # Extends mapped memory if not enough space for write
@@ -77,10 +95,195 @@ _procret:
 	pop %rbp
 	ret
 
+dirfload:
+# Load all directory items into memory
+# rdi - ptr to ptr to struct dirent
+	push %rbp
+	mov %rsp, %rbp
+	mov %rdi, -8(%rbp)
+	sub $8, %rsp
+	xor %rdi, %rdi
+	mov $65536, %rsi
+	mov $3, %rdx
+	mov $34, %r10
+	xor %r8, %r8
+	xor %r9, %r9
+	mov $9, %rax
+	syscall
+	cmp $0, %rax
+	jle _procret
+	sub $16, %rsp
+	mov %rax, -16(%rbp)
+.dirfload.1:
+	mov -16(%rbp), %rsi
+	mov -8(%rbp), %rdi
+	mov (%rdi), %rdi
+	movsxd (%rdi), %rdi
+	mov $65536, %rdx
+	mov $217, %rax
+	syscall
+	cmp $0, %rax
+	je .dirfload.0
+	mov %rax, %r10
+	push %r10
+	mov -8(%rbp), %rdi
+	mov (%rdi), %rdi
+	movsxd 4(%rdi), %rax 
+	mov %rax, -24(%rbp)
+	movsxd 8(%rdi), %rax
+	lea 16(%rdi, %rax), %rsi
+	push %rsi
+	mov %rsp, %rsi
+	lea -24(%rbp), %rdx
+	mov -8(%rbp), %rdi
+	call _chkappend
+	add $8, %rsp
+	mov -8(%rbp), %rdi
+	mov (%rdi), %rdi
+	mov -24(%rbp), %rax
+	mov %eax, 4(%rdi)
+	movsxd 8(%rdi), %rax
+	mov -16(%rbp), %rsi
+	lea 16(%rdi, %rax), %rdi
+	mov (%rsp), %rdx
+	call memcpy
+	pop %rax
+	mov -8(%rbp), %rdi
+	mov (%rdi), %rdi
+	add %eax, 8(%rdi)
+	jmp .dirfload.1
+.dirfload.0:
+	mov -16(%rbp), %rdi
+	mov $65536, %rsi
+	mov $11, %rax
+	syscall
+	jmp _procret
+
+sortdir:
+# Sorts dirent by file names
+# rdi - ptr to struct dirent
+	push %rbp
+	mov %rsp, %rbp
+	sub $24, %rsp
+	mov %rdi, -8(%rbp)
+	call cntel
+	lea -1(%rax), %rsi
+	mov %esi, -24(%rbp)
+	mov -8(%rbp), %rdi
+	call direl
+	sub %rdi, %rax
+	sub $16, %eax
+	mov %eax, -12(%rbp)
+	movl $0, -20(%rbp)
+	movl $0, -16(%rbp)
+.sortdir.0:
+	mov -8(%rbp), %rdi
+	movsxd -20(%rbp), %rsi
+	lea 16(%rdi, %rsi), %rax
+	lea 19(%rax), %rdi
+	movzxw 16(%rax), %rbx
+	lea 19(%rax, %rbx), %rsi
+	movsxd -16(%rbp), %rbx
+	add %rbx, %rdi
+	add %rbx, %rsi
+	cmpsb
+	je .sortdir.4
+	ja .sortdir.2
+	mov %rax, %rdi
+	call swap_struct
+	jmp .sortdir.2
+.sortdir.4:
+	incl -16(%rbp)
+	jmp .sortdir.0
+.sortdir.2:
+	movl $0, -16(%rbp)
+	mov -8(%rbp), %rdi
+	movsxd -20(%rbp), %rax
+	movzxw 32(%rdi, %rax), %eax
+	add %eax, -20(%rbp)
+	movsxd -12(%rbp), %eax
+	cmp %eax, -20(%rbp)
+	jb .sortdir.0
+.sortdir.1:
+	movl $0, -20(%rbp)
+	decl -24(%rbp)
+	movsxd -24(%rbp), %rsi
+	mov -8(%rbp), %rdi
+	call direl
+	movzxw 16(%rax), %eax
+	sub %eax, -12(%rbp)
+	cmpl $0, -12(%rbp)
+	je _procret
+	jmp .sortdir.0
+
+direl:
+# Returns pointer to struct linux_dirent64 by index
+# rdi - dirent struct
+# rsi - idx
+# ret rax - struct linux_dirent64 ptr
+	lea 16(%rdi), %rax
+	mov %rsi, %rcx
+	cmp $0, %rcx
+	ja .direl
+	ret
+.direl:
+	movzxw 16(%rax), %rbx
+	add %rbx, %rax
+	loop .direl
+	ret
+
+cntel:
+# Counts number of elements in loaded directory
+# rdi - struct dirent
+# ret rax - number of elements
+	push %rbp
+	mov %rsp, %rbp
+	mov 8(%rdi), %eax
+	mov %eax, -4(%rbp)
+	movl $0, -12(%rbp)
+	movl $1, -16(%rbp)
+	add $16, %rdi
+.cntel.0:
+	movzxw 16(%rdi), %rax
+	add %rax, %rdi
+	add %eax, -12(%rbp)
+	incl -16(%rbp)
+	mov -4(%rbp), %eax
+	cmpl %eax, -12(%rbp)
+	jb .cntel.0
+	movsxd -16(%rbp), %rax
+	jmp _procret
+
+swap_struct: # only for struct linux_dirent64
+# Swaps rdi struct with next
+# rdi - struct linux_dirent64*
+	push %rbp
+	mov %rsp, %rbp
+	mov %rdi, -8(%rbp)
+	sub $8, %rsp
+	movzxw 16(%rdi), %rdx
+	sub %rdx, %rsp
+	mov %rsp, %rdi
+	mov -8(%rbp), %rsi
+	call memcpy8
+	mov -8(%rbp), %rdi
+	mov %rdi, %rsi
+	movzxw 16(%rsi), %rax
+	add %rax, %rsi
+	movzxw 16(%rsi), %rdx
+	call memcpy8
+	mov -8(%rbp), %rdi
+	movzxw 16(%rdi), %rax
+	add %rax, %rdi
+	mov %rsp, %rsi
+	movzxw 16(%rsi), %rdx
+	call memcpy8
+	jmp _procret
+
 genpage:
 # Generates html page from directory content
 # rdi - struct dirent ptr
-# rsi - long* mapped size
+# rsi - long* mapped size(writes number of mapped bytes for page)
 # ret rax - page ptr
 	push %rbp
 	mov %rsp, %rbp
@@ -245,25 +448,25 @@ dirread:
 	mov %rsp, %rbp
 	mov %rdi, -8(%rbp)
 	sub $8, %rsp
-	movzxw 6(%rdi), %rbx
-	cmp %bx, 4(%rdi)
+	movsxd 12(%rdi), %rbx
+	cmp %ebx, 8(%rdi)
 	jbe .dirread.dirl
 .dirread.0:
-	lea 8(%rdi, %rbx), %rax
-	mov 16(%rax), %bx
-	add %bx, 6(%rdi)
+	lea 16(%rdi, %rbx), %rax
+	movzxw 16(%rax), %ebx
+	add %ebx, 12(%rdi)
 	jmp _procret
 .dirread.dirl:
-	lea 8(%rdi), %rsi
+	lea 16(%rdi), %rsi
 	movsxd (%rdi), %rdi
-	mov $65528, %rdx
+	mov $65520, %rdx
 	mov $217, %rax
 	syscall
 	cmp $0, %rax
 	jle _procret
 	mov -8(%rbp), %rdi
-	mov %ax, 4(%rdi)
-	movw $0, 6(%rdi)
+	mov %eax, 8(%rdi)
+	movl $0, 12(%rdi)
 	xor %rbx, %rbx
 	jmp .dirread.0
 
@@ -274,7 +477,7 @@ dirclose:
 	mov $3, %rax
 	syscall
 	pop %rdi
-	mov $65536, %rsi
+	movsxd 4(%rdi), %rsi
 	mov $11, %rax
 	syscall
 	ret
@@ -314,16 +517,17 @@ diropen:
 	mov %rax, -12(%rbp)
 	mov -4(%rbp), %ebx
 	mov %ebx, (%rax)
+	movl $65536, 4(%rax)
 	movsx %ebx, %rdi
 	mov -12(%rbp), %rsi
-	add $8, %rsi
-	mov $65528, %rdx
+	add $16, %rsi
+	mov $65520, %rdx
 	mov $217, %rax
 	syscall
 	cmp $-1, %rax
 	jle _procret
 	mov -12(%rbp), %rbx
-	mov %ax, 4(%rbx)
-	movw $0, 6(%rbx)
+	mov %eax, 8(%rbx)
+	movl $0, 12(%rbx)
 	mov -12(%rbp), %rax
 	jmp _procret
