@@ -53,7 +53,8 @@ If configuration file cannot be found, the server's parameters will set to built
   Timeout: 90 000ms\
   Minimal permission: 4\
   Show hidden files(i.e. files whose names start with '.') in directory listing: yes\
-  MIME-types file name: mime.types
+  MIME-types file name: mime.types\
+  Dirlist sorting: yes
 
 ## Configuration
 
@@ -71,7 +72,8 @@ The server config parameters list:
   min\_permission=\<num>\
   timeout=\<num>\
   show\_hidden\_files=\<true|false>\
-  mimetypes\_path=\<path>
+  mimetypes\_path=\<path>\
+  dirlist\_sorting=\<true|false>
 
 #### port
 
@@ -143,6 +145,12 @@ Mime types file syntax:
 text/x-c       c cc cxx cpp h hh hpp
 text/html      html htm
 ```
+
+#### dirlist\_sorting
+
+This parameter toggles sorting by name in directory listing.
+
+**WARNING:** Sorting can doing long on directories with a lot of entries. For example directory with 14638 entries is sorted in 16.6 seconds(CPU: Athlon 64 X2 4200+ 2200MHz).
 
 #### Commentaries
 
