@@ -1437,7 +1437,7 @@ client_thr:
 	mov $6, %edx
 	call bsndstrbyidx
 	mov $types, %rsi
-	call sndstr
+	call bsndstr
 	mov $7, %edx
 	mov $resp, %rsi
 	call bsndstrbyidx
@@ -2030,16 +2030,6 @@ memcmp:
 	ret
 .memcmp.e:
 	mov $1, %rax
-	ret
-
-sndstr:
-	push %rdi
-	mov %rsi, %rdi
-	call strlen
-	mov %rax, %rdx
-	pop %rdi
-	mov $1, %rax
-	syscall
 	ret
 
 streq:
