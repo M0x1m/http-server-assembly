@@ -14,7 +14,7 @@
  - [x] Proper partial content request serving
  - [x] Directory listing
  - [x] Mime-types
- - [ ] Root jail
+ - [x] Root jail
  - [ ] Logging
 
 ## Getting the repository

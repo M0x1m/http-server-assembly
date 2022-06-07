@@ -9,7 +9,7 @@
 # struct type {
 #   char typ[];          // NULL-terminated string of type
 #   uint16_t extnn;      // Number of extensions for this type
-#   char extns[extnn][]; // NULL-terminated strings of extensions for type above
+#   char extns[extnn][]; // NULL-terminated strings of extensions for the type above
 # };
 
 _procret:
@@ -305,5 +305,5 @@ loadmtypes:
 	jmp _procret
 
 .data
-ERR_noexts: .asciz ": Extensions for the type `\0' is not provided.\n"
+ERR_noexts: .asciz ": Extensions for the type `\0' are not provided.\n"
 ERR_notyps: .asciz ": File has no any types.\n"

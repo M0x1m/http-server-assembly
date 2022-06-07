@@ -270,6 +270,8 @@ sbuffwrite:
 	call memcpy
 	mov -8(%rbp), %rdi
 	call _swwbuf
+	cmp $-1, %rax
+	jle _procret
 	pop %rbx
 	sub %rax, -24(%rbp)
 	add %rax, -32(%rbp)

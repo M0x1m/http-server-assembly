@@ -486,43 +486,42 @@ _exit: # group exit
 sndfd:
 	push %rbp
 	mov %rsp, %rbp
-	mov %esi, -148(%rbp)
-	mov %rdi, -164(%rbp)
-	mov %rdx, -96(%rbp)
+	mov %esi, -16(%rbp)
+	mov %rdx, -12(%rbp)
 	mov (%rdi), %eax
 	mov %eax, -4(%rbp)
-	sub $164, %rsp
+	sub $24, %rsp
 .sndfd.2:
-	cmpq $65536, -96(%rbp)
+	cmpq $65536, -12(%rbp)
 	ja .sndfd.0
 	jb .sndfd.1
 .sndfd.0:
 	mov $65536, %r10
-	subq $65536, -96(%rbp)
+	subq $65536, -12(%rbp)
 	jmp .sndfd.3
 .sndfd.1:
-	mov -96(%rbp), %r10
-	movq $0, -96(%rbp)
+	mov -12(%rbp), %r10
+	movq $0, -12(%rbp)
 .sndfd.3:
 	mov -4(%rbp), %eax
-	mov %eax, -156(%rbp)
-	movw $8216, -152(%rbp)
-	movw $0, -150(%rbp)
-	lea -156(%rbp), %rdi
+	mov %eax, -24(%rbp)
+	movw $8216, -20(%rbp)
+	movw $0, -18(%rbp)
+	lea -24(%rbp), %rdi
 	mov $1, %rsi
 	xor %rdx, %rdx
 	mov $7, %rax
 	syscall
-	testw $8216, -150(%rbp)
+	testw $8216, -18(%rbp)
 	jnz .sndfd.disconn
 	mov $40, %rax
 	mov -4(%rbp), %edi
-	mov -148(%rbp), %rsi
+	mov -16(%rbp), %esi
 	xor %rdx, %rdx
 	syscall
 	cmp $0, %rax
 	jl .sndfd.disconn
-	cmpq $0, -96(%rbp)
+	cmpq $0, -12(%rbp)
 	ja .sndfd.2
 	xor %rax, %rax
 	jmp .sndfd.ret
@@ -540,13 +539,12 @@ sndfdat:
 # r10 - send len(doesn't trancates to file size)
 	push %rbp
 	mov %rsp, %rbp
-	mov %edi, -148(%rbp)
-	mov %rsi, -164(%rbp)
+	mov %edi, -32(%rbp)
 	mov (%rsi), %eax
 	mov %eax, -20(%rbp)
 	mov %rdx, -8(%rbp)
 	mov %r10, -16(%rbp)
-	sub $164, %rsp
+	sub $32, %rsp
 	mov %r10, %rax
 	xor %rdx, %rdx
 	mov $65536, %rbx
@@ -563,7 +561,7 @@ sndfdat:
 	xor %rdx, %rdx
 	mov $7, %rax
 	syscall
-	testw $8216, -150(%rbp)
+	testw $8216, -22(%rbp)
 	jnz .sndfdat.dis
 	cmpq $65536, -16(%rbp)
 	ja .sndfdat.1
@@ -572,7 +570,7 @@ sndfdat:
 .sndfdat.1:
 	mov $65536, %r10
 .sndfdat.2:
-	movsxd -148(%rbp), %rsi
+	movsxd -32(%rbp), %rsi
 	movsxd -20(%rbp), %rdi
 	lea -8(%rbp), %rdx
 	mov $40, %rax
@@ -590,15 +588,6 @@ sndfdat:
 .sndfdat.dis:
 	mov $-1, %rax
 	jmp .sndfdat.ret
-
-sigpipe_handler:
-	mov -148(%rbp), %edi
-	mov $3, %rax
-	syscall
-	mov -164(%rbp), %rdi
-	call sbuffclose
-	lea -65287(%rbp), %rdi
-	ret
 
 bputc:
 # Puts single character into the stream buffer
@@ -993,7 +982,7 @@ chkmethod:
 	mov (timeout), %rsi
 	call sbuffgetc
 	cmp $-1, %rax
-	jle .chkmethod.1
+	jle .chkmethod.hup
 	cmp $0x20, %al
 	je .chkmethod.2
 	cmp $10, %al
@@ -1021,6 +1010,9 @@ chkmethod:
 	ret
 .chkmethod.er:
 	mov $-1, %rax
+	jmp .chkmethod.1
+.chkmethod.hup:
+	mov $-3, %rax
 	jmp .chkmethod.1
 
 chkprotl:
@@ -1058,6 +1050,98 @@ chkprotl:
 	pop %rbp
 	ret
 
+.equ AT_FDCWD, 4294967196
+
+chkroot:
+# Checks attachment of path to the server's root
+# rdi - path
+# ret rax - bool
+	push %rbp
+	mov %rsp, %rbp
+	mov %rdi, -8(%rbp)
+	sub $16, %rsp
+	mov $AT_FDCWD, %rdi
+	sub $2, %rsp
+	movw $46, (%rsp)
+	mov %rsp, %rsi
+	mov $65536, %rdx
+	mov $257, %rax
+	syscall
+	add $2, %rsp
+	mov %eax, -12(%rbp)
+	mov (fsroot), %rdi
+	mov $81, %rax
+	syscall
+	sub $4096, %rsp
+	mov %rsp, %rdi
+	mov $4096, %rsi
+	mov $79, %rax
+	syscall
+	mov $AT_FDCWD, %rdi
+	mov -8(%rbp), %rsi
+	mov $65536, %rdx
+	mov $257, %rax
+	syscall
+	cmp $-20, %rax
+	jne .chkroot.1
+	mov -8(%rbp), %rdi
+	call strlen
+.chkroot.0:
+	dec %rax
+	cmp $0, %rax
+	jle .chkroot.2
+	cmpb $47, (%rdi, %rax)
+	jne .chkroot.0
+.chkroot.2:
+	add $2, %rax
+	sub %rax, %rsp
+	mov %rsp, %rdi
+	mov -8(%rbp), %rsi
+	lea -2(%rax), %rdx
+	call memcpy
+	cmp $0, %rdx
+	jne .chkroot.3
+	movb $46, (%rsp)
+.chkroot.3:
+	movb $0, 1(%rsp, %rdx)
+	mov $AT_FDCWD, %rdi
+	mov %rsp, %rsi
+	lea 2(%rsp, %rdx), %rsp
+	mov $65536, %rdx
+	mov $257, %rax
+	syscall
+.chkroot.1:
+	mov %eax, -16(%rbp)
+	mov %rax, %rdi 
+	mov $81, %rax
+	syscall
+	sub $4096, %rsp
+	mov %rsp, %rdi
+	mov $4096, %rsi
+	mov $79, %rax
+	syscall
+	mov %rsp, %rsi
+	lea 4096(%rsp), %rdi
+	call strlen
+	mov %rax, %rdx
+	call memcmp
+	dec %rsp
+	movb %al, (%rsp)
+.chkroot.ret:
+	mov -12(%rbp), %edi
+	mov $81, %rax
+	syscall
+	mov -16(%rbp), %edi
+	mov $3, %rax
+	syscall
+	mov -12(%rbp), %edi
+	mov $3, %rax
+	syscall
+	movzxb (%rsp), %rax
+	mov %rbp, %rsp
+	pop %rbp
+	ret
+
 client_thr:
 	push %rbp
 	mov %rsp, %rbp
@@ -1069,13 +1153,12 @@ client_thr:
 	xor %sil, %sil
 	call memset
 
-	mov $sigpipe_handler, %rax
+	mov $1, %rax
 	stosq
-	mov $thread_exit, %rax
+	mov $0, %rax
 	lea -140(%rbp), %rdi
 	stosq
-	movq $67108864, -148(%rbp) # 1 << 26 = SA_RESTORER, segfault returns without this flag
-
+	movq $0, -148(%rbp) 
 	mov $13, %rdi
 	lea -156(%rbp), %rsi
 	xor %rdx, %rdx
@@ -1089,6 +1172,8 @@ client_thr:
 	mov %rax, %rdi
 	mov %rax, -164(%rbp)
 	call chkmethod
+	cmp $-3, %rax
+	je .client_thr.closeconn
 	cmp $-1, %rax
 	je .client_thr.400.m
 	cmp $-2, %rax
@@ -1129,6 +1214,12 @@ client_thr:
 	je .client_thr.404
 	cmp $-1, %rax
 	jle .client_thr.404
+	movl %eax, -148(%rbp)
+	mov -156(%rbp), %rdi
+	call chkroot
+	cmp $0, %al
+	je .client_thr.403
+	movl -148(%rbp), %eax
 .client_thr.200:
 	movl %eax, -148(%rbp)
 	mov $5, %rax
@@ -1233,6 +1324,8 @@ client_thr:
 	inc %edx
 	call bsndstrbyidx
 	call sbuffflush
+	cmp $-1, %rax
+	jle .client_thr.disconn
 	mov -148(%rbp), %rsi
 	mov -164(%rbp), %rdi
 	mov -96(%rbp), %rdx
@@ -1672,6 +1765,8 @@ client_thr:
 	mov $8, %edx
 	call bsndstrbyidx
 	call sbuffflush
+	cmp $-1, %rax
+	jle .client_thr.disconn
 	cmpw $1, -174(%rbp)
 	ja .client_thr.206.8
 	mov -148(%rbp), %edi
@@ -1765,12 +1860,16 @@ client_thr:
 	call bsndstrbyidx
 	call bsndstrbyidx
 	call sbuffflush
+	cmp $-1, %rax
+	jle .client_thr.disconn
 	mov -148(%rbp), %edi
 	mov -164(%rbp), %rsi
 	pop %r10
 	pop %rdx
 	sub %rdx, %r10
 	call sndfdat
+	cmp $-1, %rax
+	jle .client_thr.disconn
 	mov -164(%rbp), %rdi
 	mov $1, %edx
 	mov $resp, %rsi
@@ -1790,6 +1889,8 @@ client_thr:
 	mov $1, %edx
 	call bsndstrbyidx
 	call sbuffflush
+	cmp $-1, %rax
+	jle .client_thr.disconn
 	jmp .client_thr.403.end
 .client_thr.416:
 	mov $resp, %rsi
@@ -1838,17 +1939,6 @@ client_thr:
 	call bsndstrbyidx
 	inc %edx
 	call bsndstrbyidx
-	mov -148(%rbp), %edi
-	call fdiropen
-	push %rax
-	testw $512, (fls)
-	jz .client_thr.dirlist.1
-	mov %rsp, %rdi
-	call dirfload
-	mov (%rsp), %rdi
-	call sortdir 
-.client_thr.dirlist.1:
-	mov -164(%rbp), %rdi
 	mov $dirlistp, %rsi
 	call bsndstr
 	mov -156(%rbp), %rsi
@@ -1861,6 +1951,19 @@ client_thr:
 	mov $dirlistp, %rsi
 	mov $2, %edx
 	call bsndstrbyidx
+	call sbuffflush
+	cmp $-1, %rax
+	jle .client_thr.disconn
+	mov -148(%rbp), %edi
+	call fdiropen
+	push %rax
+	testw $512, (fls)
+	jz .client_thr.dirlist.1
+	mov %rsp, %rdi
+	call dirfload
+	mov (%rsp), %rdi
+	call sortdir 
+.client_thr.dirlist.1:
 	sub $8, %rsp
 	mov 8(%rsp), %rdi
 	mov %rsp, %rsi
@@ -1922,8 +2025,7 @@ thread_exit:
 .thread_exit.1:
 	lea -65536(%rsp), %rdi
 	mov $65536, %rsi
-	mov $4, %rdx
-	mov $28, %rax
+	mov $11, %rax
 	syscall
 	xor %rdi, %rdi
 	jmp exit

@@ -1,4 +1,4 @@
-# Requiremets for this file:
+# Requirements for this file:
 # 1. getstrbyidx
 # 2. memcpy
 # 3. strlen
