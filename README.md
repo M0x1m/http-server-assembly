@@ -54,7 +54,9 @@ If configuration file cannot be found, the server's parameters will set to built
   Minimal permission: 4\
   Show hidden files(i.e. files whose names start with '.') in directory listing: yes\
   MIME-types file name: mime.types\
-  Dirlist sorting: yes
+  Dirlist sorting: yes\
+  Dirlist caching: yes\
+  Cache directory: cache
 
 ## Configuration
 
@@ -73,7 +75,9 @@ The server config parameters list:
   timeout=\<num>\
   show\_hidden\_files=\<true|false>\
   mimetypes\_path=\<path>\
-  dirlist\_sorting=\<true|false>
+  dirlist\_sorting=\<true|false>\
+  dirlists\_caching=\<true|false>\
+  caches\_dir=\<dir>
 
 #### port
 
@@ -151,6 +155,14 @@ text/html      html htm
 This parameter toggles sorting by name in directory listing.
 
 **WARNING:** Sorting can doing long on directories with a lot of entries. For example directory with 14638 entries is sorted in 16.6 seconds(CPU: Athlon 64 X2 4200+ 2200MHz).
+
+#### dirlists\_caching
+
+This parameter toggles caching a pages of directory listing.
+
+#### caches\_dir
+
+This parameter determines a location of a cache files.
 
 #### Commentaries
 
