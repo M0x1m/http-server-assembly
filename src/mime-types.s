@@ -13,21 +13,8 @@
 # };
 
 _procret:
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
-
-.extern buffopen
-.extern buffclose
-.extern skip_sts 
-.extern _chkappend
-.extern getval
-.extern stderr
-.extern bsndustr
-.extern strlen
-.extern streq
-.extern bsndstrbyidx
-.extern sbuffflush
 
 .globl loadmtypes
 .globl findtype

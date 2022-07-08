@@ -13,22 +13,8 @@
 .global getval
 .global fls
 .global bsndstrbyidx
-
-.extern loadmtypes
-.extern findtype
-.extern buffopen
-.extern dirclose
-.extern fdiropen
-.extern genpage
-.extern buffclose
-.extern buffgetc
-.extern buffseek
-.extern sbuffattach
-.extern sbuffgetc
-.extern sbuffwrite
-.extern sbuffflush 
-.extern sbuffread
-.extern getext
+.global min
+.global memmovp
 
 .text
 strlen:
@@ -50,7 +36,7 @@ new_thr:
 	mov $9, %rax
 	xor %rdi, %rdi
 	mov $65536, %rsi			# THREAD STACK SIZE declared here
-	mov $7, %rdx
+	mov $3, %rdx
 	mov $34, %r10
 	xor %r8, %r8
 	xor %r9, %r9
@@ -59,7 +45,7 @@ new_thr:
 	pop 65536-8(%rax)
 	pop 65536-16(%rax)
 
-	lea 65536-16(%rax), %rax 
+	lea 65536-16(%rax), %rax
 	mov %rax, -8(%rbp)
 
 	mov $56, %rax
@@ -69,7 +55,7 @@ new_thr:
 	xor %r10, %r10
 	xor %r8, %r8
 	syscall
-	
+
 	cmp $0, %rax
 	je .new_thr.0
 
@@ -125,17 +111,14 @@ strtou:
 	jmp .strtou.4
 .strtou.3:
 	mov -8(%rbp), %rsi
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 
 htons:
-	mov %rdi, %rax
-	shl $8, %rax
-	mov $65535, %rbx
-	xor %rdx, %rdx
-	div %rbx
-	mov %rdx, %rax
+	mov %di, %ax
+	shr $8, %ax
+	shl $8, %di
+	or %di, %ax
 	ret
 
 ulen:
@@ -192,8 +175,7 @@ strulen:
 	cmp $1, %al
 	je .strulen.1
 	mov -16(%rbp), %rax
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	pop %rdi
 	ret
 
@@ -230,8 +212,7 @@ utostr:
 	neg %rcx
 	lea -9(%rbp, %rcx), %rax
 .utostr.ovflw:
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 
 memcpy:
@@ -239,38 +220,6 @@ memcpy:
 	mov %rdi, %rax
 	rep movsb
 	mov %rax, %rdi
-	ret
-
-wait_client:
-	push %rdi
-	movw $0, -14(%rsp)
-	jmp .wait_client.1
-.wait_client.0:
-	cmpl $0, -12(%rsp)
-	je .wait_client.2
-	cmpw $90, -14(%rsp)
-	je .wait_client.2
-.wait_client.1:
-	mov (%rsp), %rax
-	movl %eax, -8(%rsp)
-	movw $8216, -4(%rsp)
-	movw $0, -2(%rsp)
-	mov $7, %rax
-	mov $1, %rsi
-	mov $1000, %rdx
-	lea -8(%rsp), %rdi
-	syscall
-	testw $8216, -2(%rsp)
-	jnz .wait_client.2
-	lea -12(%rsp), %rdx
-	mov $21521, %rsi
-	mov (%rsp), %rdi
-	mov $16, %rax
-	syscall
-	incw -14(%rsp)
-	jmp .wait_client.0
-.wait_client.2:
-	pop %rdi
 	ret
 
 strslen: # computes NULL-terminated strings's length
@@ -284,8 +233,7 @@ strslen: # computes NULL-terminated strings's length
 	cmp $0, %rsi
 	ja .strslen.1
 	mov -16(%rbp), %rax
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 .strslen.1:
 	dec %rsi
@@ -327,8 +275,7 @@ getcpath:
 	mov $0x2F, %sil
 	call skip_delim
 .getcpath.fret:
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 
 unhexhttp:
@@ -365,8 +312,7 @@ unhexhttp:
 .unhexhttp.1:
 	mov -8(%rbp), %rax
 	mov %rax, %rdi
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 
 memmovp:
@@ -401,8 +347,7 @@ memmov:
 	cld
 	mov -8(%rbp), %rdi
 	mov -16(%rbp), %rsi
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 
 ishexchar:
@@ -475,8 +420,7 @@ unhexdctob:
 .unhexdctob.errret:
 	mov $-1, %rax
 .unhexdctob.ret:
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 
 _exit: # group exit
@@ -521,6 +465,7 @@ sndfd:
 	syscall
 	cmp $0, %rax
 	jl .sndfd.disconn
+	je .sndfd.ret
 	cmpq $0, -12(%rbp)
 	ja .sndfd.2
 	xor %rax, %rax
@@ -528,8 +473,7 @@ sndfd:
 .sndfd.disconn:
 	mov $-1, %rax
 .sndfd.ret:
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 
 sndfdat:
@@ -582,8 +526,7 @@ sndfdat:
 	pop %rcx
 	loop .sndfdat.0
 .sndfdat.ret:
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 .sndfdat.dis:
 	mov $-1, %rax
@@ -605,8 +548,7 @@ bputc:
 	movzxb -9(%rbp), %rax
 	mov -8(%rbp), %rsi
 	mov %rsi, %rdi
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 
 bsndstr:
@@ -620,8 +562,7 @@ bsndstr:
 	mov -8(%rbp), %rdi
 	call sbuffwrite
 	mov -8(%rbp), %rdi
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 
 bsndstrbyidx:
@@ -642,8 +583,7 @@ bsndstrbyidx:
 	call sbuffwrite
 	mov -16(%rbp), %rsi
 	mov -20(%rbp), %edx
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 
 bsndustr:
@@ -662,8 +602,7 @@ bsndustr:
 	mov -8(%rbp), %rdi
 	call sbuffwrite
 	mov -8(%rbp), %rdi
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 
 ctolc:
@@ -715,8 +654,7 @@ strtoc:
 	mov -8(%rbp), %rdi
 	mov %al, -1(%rdi, %rcx)
 	loop .strtoc.l
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 
 # struct ranges{
@@ -878,8 +816,7 @@ getrange:
 .getrange.0:
 	xor %rax, %rax
 .getrange.ret:
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 .data
 .getrange.str0:
@@ -916,8 +853,7 @@ delc:
 	cmp $0, %rax
 	ja .delc.0
 .delc.ret:
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	pop %rdi
 	ret
 
@@ -963,8 +899,7 @@ getexpofft:
 .getexpofft.nf:
 	mov $-1, %rax
 .getexpofft.ret:
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 
 chkmethod:
@@ -1005,8 +940,7 @@ chkmethod:
 	mov $-1, %rax
 .chkmethod.1:
 	mov -8(%rbp), %rdi
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 .chkmethod.er:
 	mov $-1, %rax
@@ -1046,8 +980,7 @@ chkprotl:
 	mov $HTTPV, %rsi
 	call streq
 .chkprotl.2:
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 
 .equ AT_FDCWD, 4294967196
@@ -1059,16 +992,7 @@ chkroot:
 	push %rbp
 	mov %rsp, %rbp
 	mov %rdi, -8(%rbp)
-	sub $16, %rsp
-	mov $AT_FDCWD, %rdi
-	sub $2, %rsp
-	movw $46, (%rsp)
-	mov %rsp, %rsi
-	mov $65536, %rdx
-	mov $257, %rax
-	syscall
-	add $2, %rsp
-	mov %eax, -12(%rbp)
+	sub $12, %rsp
 	mov (fsroot), %rdi
 	mov $81, %rax
 	syscall
@@ -1111,7 +1035,7 @@ chkroot:
 	mov $257, %rax
 	syscall
 .chkroot.1:
-	mov %eax, -16(%rbp)
+	mov %eax, -12(%rbp)
 	mov %rax, %rdi 
 	mov $81, %rax
 	syscall
@@ -1129,24 +1053,17 @@ chkroot:
 	movb %al, (%rsp)
 .chkroot.ret:
 	mov -12(%rbp), %edi
-	mov $81, %rax
-	syscall
-	mov -16(%rbp), %edi
-	mov $3, %rax
-	syscall
-	mov -12(%rbp), %edi
 	mov $3, %rax
 	syscall
 	movzxb (%rsp), %rax
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 
 client_thr:
 	push %rbp
 	mov %rsp, %rbp
 
-	sub $182, %rsp
+	sub $183, %rsp
 	movw $0, -174(%rbp)
 	lea -156(%rbp), %rdi
 	mov $156, %rdx
@@ -1333,7 +1250,6 @@ client_thr:
 	cmp $-1, %rax
 	jle .client_thr.disconn
 	mov 8(%rbp), %rdi
-	call wait_client
 .client_thr.disconn:
 	cmpl $0, -148(%rbp)
 	je .client_thr.closeconn
@@ -1358,6 +1274,18 @@ client_thr:
 	movq $0, -156(%rbp)
 	jmp .client_thr.200
 .client_thr.404:
+	testw $1024, (fls)
+	jz .client_thr.404.1
+	mov -156(%rbp), %rdi
+	mov (caches_struct), %rsi
+	mov (fsroot), %edx
+	call lookforcache
+	cmp $-1, %rax
+	jle .client_thr.404.1
+	mov %rax, %rdi
+	mov (caches_struct), %rsi
+	call delcache
+.client_thr.404.1:
 	testb $32, (fls)
 	jnz .client_thr.404.c
 	mov -164(%rbp), %rdi
@@ -1414,7 +1342,6 @@ client_thr:
 	call bsndstrbyidx
 	call sbuffflush
 	mov 8(%rbp), %rdi
-	call wait_client
 	jmp .client_thr.closeconn
 .client_thr.404.c:
 	mov (p404path), %rdi
@@ -1465,9 +1392,7 @@ client_thr:
 	mov -164(%rbp), %rdi
 	mov -96(%rbp), %rdx
 	call sndfd
-
 	mov 8(%rbp), %rdi
-	call wait_client
 	jmp .client_thr.disconn
 .client_thr.403.oer:
 	movl $0, -148(%rbp)
@@ -1564,7 +1489,6 @@ client_thr:
 	call sndfd
 .client_thr.403.end:
 	mov 8(%rbp), %rdi
-	call wait_client
 	jmp .client_thr.disconn
 .client_thr.400.p:
 	movb $1, -9(%rbp)
@@ -1617,7 +1541,6 @@ client_thr:
 	call bsndstrbyidx
 	call sbuffflush
 	mov 8(%rbp), %rdi
-	call wait_client
 	jmp .client_thr.closeconn
 .client_thr.408:
 	mov $resp, %rsi
@@ -1631,7 +1554,6 @@ client_thr:
 	call bsndstrbyidx
 	call sbuffflush
 	mov 8(%rbp), %rdi
-	call wait_client
 	jmp .client_thr.closeconn
 .client_thr.206:
 	mov -96(%rbp), %rax
@@ -1922,6 +1844,42 @@ client_thr:
 	movb $0, (%rsp)
 	mov %rsp, -156(%rbp)
 .client_thr.dirlist.0:
+	testw $1024, (fls)
+	jz .client_thr.dirlist.3
+	sub $3, %rsp
+	andb $0, -185(%rbp)
+	mov -156(%rbp), %rdi
+	mov (caches_struct), %rsi
+	movsxd (fsroot), %rdx
+	call lookforcache
+	cmp $-1, %rax
+	jle .client_thr.dirlist.3
+	mov %rax, -184(%rbp)
+	mov (caches_struct), %rdi
+	movsxd (%rdi), %rdi 
+	mov %rax, %rsi
+	mov $0, %rdx
+	mov $257, %rax
+	syscall
+	cmp $-1, %rax
+	jg .client_thr.dirlist.9
+	mov -184(%rbp), %rdi 
+	mov (caches_struct), %rsi
+	call delcache
+	jmp .client_thr.dirlist.3
+.client_thr.dirlist.9:
+	mov %eax, -168(%rbp)
+	xor %rdi, %rdi
+	mov $65536, %rsi
+	mov $3, %rdx
+	mov $2, %r10
+	mov %rax, %r8
+	xor %r9, %r9
+	mov $9, %rax
+	syscall
+	mov %rax, -176(%rbp)
+	orb $1, -185(%rbp)
+.client_thr.dirlist.3:
 	mov -164(%rbp), %rdi
 	mov $resp, %rsi
 	call bsndstr
@@ -1954,8 +1912,28 @@ client_thr:
 	call sbuffflush
 	cmp $-1, %rax
 	jle .client_thr.disconn
+	testw $1024, (fls)
+	jz .client_thr.dirlist.5
+	testb $1, -185(%rbp)
+	jz .client_thr.dirlist.5
+	mov -176(%rbp), %rdi
+	call strlen
+	lea 9(%rax), %rbx
+	mov 1(%rdi, %rax), %rax
+	cmp %rax, -56(%rbp)
+	je .client_thr.dirlist.6
+	mov -176(%rbp), %rdi
+	mov $65536, %rsi
+	mov $11, %rax
+	syscall
+	movsxd -168(%rbp), %rdi
+	mov $3, %rax
+	syscall
+.client_thr.dirlist.5:
 	mov -148(%rbp), %edi
 	call fdiropen
+	cmp $-1, %rax
+	jle .client_thr.disconn
 	push %rax
 	testw $512, (fls)
 	jz .client_thr.dirlist.1
@@ -1972,6 +1950,27 @@ client_thr:
 	mov -164(%rbp), %rdi
 	mov %rax, %rsi
 	call bsndstr
+	testw $1024, (fls)
+	jz .client_thr.dirlist.2
+	mov -56(%rbp), %rax
+	cmp %rax, -72(%rbp)
+	je .client_thr.dirlist.2
+	testb $1, -185(%rbp)
+	jnz .client_thr.dirlist.8
+	mov $caches_struct, %rdi
+	mov (%rsp), %rsi
+	mov -56(%rbp), %rdx
+	mov 16(%rsp), %r10
+	mov (%r10), %r10d
+	call mkcache
+	jmp .client_thr.dirlist.2
+.client_thr.dirlist.8:
+	mov -184(%rbp), %rdi
+	mov (caches_struct), %rsi
+	mov (%rsp), %rdx
+	mov -56(%rbp), %r10
+	call updcache
+.client_thr.dirlist.2:
 	mov 8(%rsp), %rsi
 	pop %rdi
 	mov $11, %rax
@@ -1982,8 +1981,36 @@ client_thr:
 	pop %rdi
 	call dirclose
 	mov 8(%rbp), %rdi
-	call wait_client
 	jmp .client_thr.closeconn
+.client_thr.dirlist.6:
+	push %rbx
+.client_thr.dirlist.7:
+	mov (%rsp), %r10
+	mov -176(%rbp), %rsi
+	movsxd -168(%rbp), %rdi
+	mov $65536, %rdx
+	mov $17, %rax
+	syscall
+	push %rax
+	add %rax, 8(%rsp)
+	mov %rax, %rdx
+	mov -176(%rbp), %rsi
+	mov -164(%rbp), %rdi
+	call sbuffwrite
+	add $8, %rsp
+	cmpq $65536, -8(%rsp)
+	je .client_thr.dirlist.7
+	mov -164(%rbp), %rdi
+	call sbuffflush
+	mov -176(%rbp), %rdi
+	mov $65536, %rsi
+	mov $11, %rax
+	syscall
+	movsxd -168(%rbp), %rdi
+	mov $3, %rax
+	syscall
+	mov 8(%rbp), %rdi
+	jmp .client_thr.disconn
 
 cranges:
 # Computes total length of ranges
@@ -2019,8 +2046,7 @@ thread_exit:
 	ja .thread_exit.0
 	jmp .thread_exit.1
 .thread_exit.0:
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	add $8, %rsp
 .thread_exit.1:
 	lea -65536(%rsp), %rdi
@@ -2169,8 +2195,7 @@ skip_sts:
 	mov $1, %edx
 	call buffseek
 .skip_sts.ret:
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 .skip_sts.1:
 	movb $1, -9(%rbp)
@@ -2234,8 +2259,7 @@ getvar:
 .getvar.err:
 	mov $-1, %rax
 .getvar.pass:
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 
 unexp_word:
@@ -2264,8 +2288,7 @@ unexp_word:
 	call getstrbyidx
 	mov %rax, %rdi
 	call .perror.fprint
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 .unexp_word.2:
 	mov $ERR_unexp_word, %rdi
@@ -2350,8 +2373,7 @@ inet_addr:
 	jb .inet_addr.0
 .inet_addr.ret:
 	movsxd -13(%rbp), %rax
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 
 getval:
@@ -2380,8 +2402,7 @@ getval:
 	je .getval.1
 	jmp .getval.0
 .getval.ret:
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 .getval.2:
 	mov $1, %edx
@@ -2433,8 +2454,7 @@ strinstrs:
 	decl -24(%rbp)
 	movsxd -24(%rbp), %eax
 .strinstrs.ret:
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 
 parse_cfg:
@@ -2468,7 +2488,7 @@ parse_cfg:
 	mov %rdi, -16(%rbp)
 	mov %rdi, %rsp
 	mov $CFG_KEYWORDS, %rsi
-	mov $15, %rdx
+	mov $17, %rdx
 	call strinstrs
 	cmp $0, %rax
 	je .parse_cfg.port
@@ -2500,6 +2520,10 @@ parse_cfg:
 	je .parse_cfg.show_hidden_files
 	cmp $14, %rax
 	je .parse_cfg.dirlist_sorting
+	cmp $15, %rax
+	je .parse_cfg.dirlists_caching
+	cmp $16, %rax
+	je .parse_cfg.cache_dir
 	mov -16(%rbp), %rdi
 	mov -24(%rbp), %rsi
 	call unexp_word
@@ -2508,8 +2532,7 @@ parse_cfg:
 	mov -8(%rbp), %rdi
 	call buffclose
 .parse_cfg.errret:
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 .parse_cfg.port:
 	mov -8(%rbp), %rdi
@@ -2783,6 +2806,47 @@ parse_cfg:
 	mov %rsp, %rdi
 	call unexp_word
 	jmp .parse_cfg.opts
+.parse_cfg.dirlists_caching:
+	mov -8(%rbp), %rdi
+	lea -24(%rbp), %rsi
+	call getval
+	mov %rax, %rsp
+	mov %rsp, %rdi
+	mov $TRUE, %rsi
+	call streq
+	cmpb $0, %al
+	je .parse_cfg.dirlists_caching.0
+	orw $1024, (fls)
+	jmp .parse_cfg.opts
+.parse_cfg.dirlists_caching.0:
+	mov $FALSE, %rsi
+	call streq
+	cmpb $0, %al
+	je .parse_cfg.dirlists_caching.1
+	andw $~1024, (fls)
+	jmp .parse_cfg.opts
+.parse_cfg.dirlists_caching.1:
+	mov -24(%rbp), %rsi
+	mov %rsp, %rdi
+	call unexp_word
+	jmp .parse_cfg.opts
+.parse_cfg.cache_dir:
+	mov -8(%rbp), %rdi
+	lea -24(%rbp), %rsi
+	call getval
+	mov %rax, %rsp
+	mov %rsp, %rdi
+	call strlen
+	lea 1(%rax), %rdx
+	mov %rsp, %rsi
+	mov $pathesb, %rdi
+	add (patheso), %rdi
+	call memcpy
+	mov %rdi, %rax
+	mov $cache, %rdi
+	stosq
+	add %rdx, (patheso)
+	jmp .parse_cfg.opts
 
 parse_args:
 	push %rbp
@@ -2841,8 +2905,7 @@ parse_args:
 	call sbuffflush
 	jmp .parse_args.0
 .parse_args.ret:
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 .parse_args.cfg:
 	mov -12(%rbp), %rax
@@ -2926,6 +2989,29 @@ _start:
 	call perror
 ._start.0:
 	mov %rax, (mtypesp)
+	testw $1024, (fls)
+	jz ._start.2
+	mov (cache), %rdi
+	mov $65536, %rsi
+	mov $2, %rax
+	syscall
+	cmp $0, %rax
+	jg ._start.1
+	mov $5, %rdi
+	mov $0, %sil
+	mov (cache), %rdx
+	call perror
+._start.1:
+	movsx %eax, %rdi
+	mov $caches_struct, %rsi
+	call loadcaches
+	cmp $-1, %rax
+	jg ._start.2
+	mov $6, %rdi
+	mov $0, %sil
+	mov (cache), %rdx
+	call perror
+._start.2:
 
 	testb $16, (fls)
 	jz _start.ndaemonize
@@ -2936,6 +3022,10 @@ _start:
 	jne exit
 	mov $112, %rax
 	syscall
+	mov (stdout), %rdi
+	call sbuffclose
+	mov (stderr), %rdi
+	call sbuffclose
 _start.ndaemonize:
 	mov $2, %rax
 	mov (serv_root), %rdi
@@ -2957,6 +3047,7 @@ _start.ndaemonize:
 	movl -4(%rbp), %edi
 	mov $1, %rsi
 	mov $15, %rdx
+	movl $0, -8(%rbp)
 	lea -8(%rbp), %r10
 	mov $4, %r8
 	syscall
@@ -3042,6 +3133,8 @@ perror:
 	je .perror.accept
 	cmp $5, %rdi
 	je .perror.open
+	cmp $6, %rdi
+	je .perror.caches
 	jmp .perror.Ni
 .perror.Ni:
 	mov $ERR_ERR, %rdi
@@ -3090,16 +3183,14 @@ perror:
 	call .perror.print
 	mov $ERR_listen, %rdi
 	call .perror.fprint
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 .perror.accept:
 	mov $ERR_ERR, %rdi
 	call .perror.print
 	mov $ERR_accept, %rdi
 	call .perror.fprint
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 .perror.open:
 	movb %sil, -1(%rbp)
@@ -3131,24 +3222,21 @@ perror:
 	call .perror.fprint
 	cmpb $0, -1(%rbp)
 	je .perror.exit
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 .perror.open.enotdir:
 	mov $ERR_ENOTDIR, %rdi
 	call .perror.fprint
 	cmpb $0, -1(%rbp)
 	je .perror.exit
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 .perror.open.eisdir:
 	mov $ERR_ISDIR, %rdi
 	call .perror.fprint
 	cmpb $0, -1(%rbp)
 	je .perror.exit
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 .perror.fprint:
 	call .perror.print
@@ -3161,7 +3249,20 @@ perror:
 	mov %rax, %rdx
 	mov (stderr), %rdi
 	call sbuffwrite
-	ret	
+	ret
+.perror.caches:
+	mov %rdx, -8(%rbp)
+	mov $ERR_ERR, %rdi
+	call .perror.print
+	mov $ERR_cache, %rdi
+	call .perror.print
+	mov -8(%rbp), %rdi
+	call .perror.print
+	mov $ERR_cache, %rdi
+	mov $1, %esi
+	call getstrbyidx
+	mov %rax, %rdi
+	call .perror.fprint
 .perror.exit:
 	mov $1, %rdi
 	jmp _exit
@@ -3177,7 +3278,7 @@ exit:
 
 	argc: .quad 0
 	args: .quad 0
-	fls: .byte 136, 3
+	fls: .byte 136, 7
 #	[arg] port = 0 << 0
 #	[arg] serv addr = 0 << 1
 #	[arg] root = 0 << 2
@@ -3188,23 +3289,27 @@ exit:
 #	[cfg] do_dirlist = 1 << 7
 #   [cfg] show_hidden_files = 1 << 8
 #   [cfg] dirlist_sorting = 1 << 9
+#   [cfg] dirlists_caching = 1 << 10
 
 	stdout: .quad 0
 	stderr: .quad 0
-	patheso: .quad 0 
+	patheso: .quad 0
 
 	timeout: .quad 90000
 	mpermission: .long 04
 	port: .word 80
 	saddr: .long 0
 	fsroot: .long 0
+	caches_struct: .quad 0
 	cfgpath: .quad dcfgpath
 	serv_root: .quad dserv_root
 	p404path: .quad d404path
 	p403path: .quad d403path
 	mtypes: .quad dmtypes
+	cache: .quad dcache
 	mtypesp: .quad 0
 
+	dcache: .asciz ".cache"
 	dmtypes: .asciz "mime.types"
 	d403path: .asciz "pages/403.html"
 	d404path: .asciz "pages/404.html"
@@ -3267,7 +3372,7 @@ exit:
 	ERR_setsock: .asciz "Cannot to setsockopt.\n"
 	ERR_bind: .asciz "Cannot bind: "
 	ERR_open: .asciz "Cannot open `\0': "
-	ERR_ENOENT: .asciz "File or directory does not exist.\n"	
+	ERR_ENOENT: .asciz "File or directory does not exist.\n"
 	ERR_EADDRINUSE:	.asciz "Address in use.\n"
 	ERR_EADDRNOTAVAIL: .asciz "Interface does not exist, check your host_addr option.\n"
 	ERR_EACCES:	.asciz "Not enough permission.\n"
@@ -3277,6 +3382,7 @@ exit:
 	ERR_ISDIR: .asciz "Not a regular file.\n"
 	ERR_unexp_word: .asciz ":\0 Unexpected word: `\0'.\n"
 	ERR_unknown_arg: .asciz "Unknown argument: `\0'.\n"
+	ERR_cache: .asciz "Cannot load cache files from directory `\0'. Make sure that the directory does not have any extrinsic files or directories.\n"
 
 	ARGS:
 		.asciz "--config="
@@ -3304,6 +3410,8 @@ exit:
 		.asciz "mimetypes_path="
 		.asciz "show_hidden_files="
 		.asciz "dirlist_sorting="
+		.asciz "dirlists_caching="
+		.asciz "caches_dir="
 
 	HTTP_M: .asciz "GET"
 	HTTPV:  .asciz "HTTP/1.1"

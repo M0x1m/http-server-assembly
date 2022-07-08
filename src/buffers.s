@@ -1,6 +1,3 @@
-# "Dependencies" for this assembly buffers library:
-#    1. memcpy(dest, src, cnt) = dest
-
 .text
 
 # The file buffer cannot buffered write to openned or attached file.
@@ -145,8 +142,7 @@ _getofft:
 	ret
 
 _procret:
-	mov %rbp, %rsp
-	pop %rbp
+	leave
 	ret
 
 _swwbuf:
@@ -166,7 +162,7 @@ _swwbuf:
 	movw $0, 6(%rdi)
 	jmp _procret
 
-.globl buffseek    # buff prefix determines usage with files
+.globl buffseek	# buff prefix determines usage with files
 .globl buffopen
 .globl buffgetc
 .globl buffclose
@@ -177,8 +173,6 @@ _swwbuf:
 .globl sbuffflush
 .globl sbuffclose
 .globl sbuffread
-
-.extern memcpy
 
 sbuffattach:
 # stream buffer attach
@@ -515,7 +509,7 @@ buffgetc:
 	lea -16(%rbp), %rdi
 	stosq
 	mov 12(%rsi), %rax
-	lea -24(%rbp), %rdi 
+	lea -24(%rbp), %rdi
 	stosq
 	movzxw 20(%rsi), %rax
 	add %rax, -24(%rbp)
