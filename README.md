@@ -163,6 +163,7 @@ This parameter toggles caching a pages of directory listing.
 #### caches\_dir
 
 This parameter determines a location of a cache files.
+Cache directory should be empty.
 
 #### Commentaries
 
