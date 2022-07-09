@@ -49,7 +49,7 @@ new_thr:
 	mov %rax, -8(%rbp)
 
 	mov $56, %rax
-	mov $0x00010f00, %rdi
+	mov $0x10d00, %rdi
 	mov -8(%rbp), %rsi
 	xor %rdx, %rdx
 	xor %r10, %r10
