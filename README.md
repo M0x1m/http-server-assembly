@@ -1,4 +1,4 @@
-# Http Assmembly server
+# Http Assembly server
 
 This branch is a version of the server for arm64(Aarch64) devices.
 
