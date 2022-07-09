@@ -198,4 +198,4 @@ resp:
 	.ascii "<title>Server is not implemented</title>\n"
 	.ascii "</head><body>\n"
 	.ascii "<h1>Server is not implemented yet.</h1>\n"
-	.ascii "</body></html>\n"
+	.asciz "</body></html>\n"
