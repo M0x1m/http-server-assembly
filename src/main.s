@@ -121,27 +121,6 @@ htons:
 	or %di, %ax
 	ret
 
-ulen:
-	mov $1, %rax
-	push %rdi
-.ulen.0:
-	cmp $9, %rdi
-	ja .ulen.1
-	jmp .ulen.2
-.ulen.1:
-	push %rax
-	mov %rdi, %rax
-	mov $10, %rbx
-	xor %rdx, %rdx
-	div %rbx
-	mov %rax, %rdi
-	pop %rax
-	inc %rax
-	jmp .ulen.0
-.ulen.2:
-	pop %rdi
-	ret
-
 isdigit:
 # dil - char
 	cmp $0x30, %dil
@@ -182,36 +161,21 @@ strulen:
 utostr:
 	push %rbp
 	mov %rsp, %rbp
-	sub $48, %rsp
-	call ulen
-	cmp $48, %rax
-	jae .utostr.ovflw
-	movl %eax, -8(%rbp)
-	movl %eax, -4(%rbp)
-.utostr.0:
-	cmpl $0, -4(%rbp)
-	ja .utostr.1
-	jmp .utostr.2
-.utostr.1:
-	mov %rdi, %rax
+	mov %rdi, -8(%rbp)
+	movb $0, -9(%rbp)
+	sub $9, %rsp
+.utostr:
+	mov -8(%rbp), %rax
 	mov $10, %rbx
 	xor %rdx, %rdx
 	div %rbx
-	mov %rax, %rdi
-	add $0x30, %rdx
-	movl -4(%rbp), %ecx
-	subl -8(%rbp), %ecx
-	negl %ecx
-	neg %rcx
-	movb %dl, -10(%rbp, %rcx)
-	decl -4(%rbp)
-	jmp .utostr.0
-.utostr.2:
-	movb $0, -9(%rbp)
-	movl -8(%rbp), %ecx
-	neg %rcx
-	lea -9(%rbp, %rcx), %rax
-.utostr.ovflw:
+	mov %rax, -8(%rbp)
+	dec %rsp
+	or $48, %dl
+	mov %dl, (%rsp)
+	cmp $0, %rax
+	ja .utostr
+	mov %rsp, %rax
 	leave
 	ret
 
@@ -715,7 +679,7 @@ getrange:
 	mov %rax, %rdx
 	mov %rsp, %rsi
 	call memmovp
-	mov %rsp, -24(%rbp) 
+	mov %rsp, -24(%rbp)
 	mov %rsp, %rdi
 	mov $13, %sil
 	call offt_to_delim
@@ -728,7 +692,7 @@ getrange:
 	mov %rsp, %rdi
 	movb $0, (%rdi, %rax)
 	mov %eax, -28(%rbp)
-	call strulen 
+	call strulen
 	cmp $0, %rax
 	jne .getrange.1
 	sub $9, %rsp
@@ -816,6 +780,8 @@ getrange:
 .getrange.0:
 	xor %rax, %rax
 .getrange.ret:
+	mov -8(%rbp), %rdi
+	subw $4, 4(%rdi)
 	leave
 	ret
 .data
@@ -933,11 +899,8 @@ chkmethod:
 	sub $2, %rsi
 	call memrev
 	mov $HTTP_M, %rsi
-	mov $1, %rdx
+	mov $9, %rdx
 	call strinstrs
-	cmp $0, %al
-	je .chkmethod.1
-	mov $-1, %rax
 .chkmethod.1:
 	mov -8(%rbp), %rdi
 	leave
@@ -973,12 +936,15 @@ chkprotl:
 	je .chkprotl.1
 	jmp .chkprotl.0
 .chkprotl.1:
+	mov -8(%rbp), %rdi
+	decw 4(%rdi)
 	mov %rsp, %rdi
 	movzxw -10(%rbp), %rsi
 	sub $2, %rsi
 	call memrev
 	mov $HTTPV, %rsi
-	call streq
+	mov $3, %rdx
+	call strinstrs
 .chkprotl.2:
 	leave
 	ret
@@ -1036,7 +1002,7 @@ chkroot:
 	syscall
 .chkroot.1:
 	mov %eax, -12(%rbp)
-	mov %rax, %rdi 
+	mov %rax, %rdi
 	mov $81, %rax
 	syscall
 	sub $4096, %rsp
@@ -1075,7 +1041,7 @@ client_thr:
 	mov $0, %rax
 	lea -140(%rbp), %rdi
 	stosq
-	movq $0, -148(%rbp) 
+	movq $0, -148(%rbp)
 	mov $13, %rdi
 	lea -156(%rbp), %rsi
 	xor %rdx, %rdx
@@ -1091,8 +1057,10 @@ client_thr:
 	call chkmethod
 	cmp $-3, %rax
 	je .client_thr.closeconn
-	cmp $-1, %rax
+	cmp $9, %rax
 	je .client_thr.400.m
+	cmp $0, %rax
+	jg .client_thr.501
 	cmp $-2, %rax
 	je .client_thr.408
 	call getcpath
@@ -1104,8 +1072,11 @@ client_thr:
 	mov %rsp, -156(%rbp)	# requested file name pointer to string saved in -156(%rbp)
 	mov -164(%rbp), %rdi
 	call chkprotl
-	cmp $0, %rax
-	je .client_thr.400.p
+	cmp $2, %rax
+	je .client_thr.505
+	jg .client_thr.400.p
+	cmp $-2, %rax
+	je .client_thr.408
 	cmp $-1, %rax
 	jle .client_thr.closeconn
 	mov -164(%rbp), %rdi
@@ -1116,6 +1087,23 @@ client_thr:
 	mov -172(%rbp), %rsp
 	mov %ax, -174(%rbp)
 .client_thr.nrs:
+	push %rbx
+	mov -164(%rbp), %rdi
+	mov (timeout), %rsi
+	call sbuffgetc
+	cmp $-1, %rax
+	je .client_thr.closeconn
+	cmp $-2, %rax
+	je .client_thr.408
+	pop %rbx
+	shl $8, %ebx
+	or %al, %bl
+	cmp $0x0a0a, %bx
+	je .client_thr.0
+	cmp $0x0d0a0d0a, %ebx
+	je .client_thr.0
+	jmp .client_thr.nrs
+.client_thr.0:
 	mov -156(%rbp), %rdi
 	call strlen
 	cmp $0, %rax
@@ -1856,7 +1844,7 @@ client_thr:
 	jle .client_thr.dirlist.3
 	mov %rax, -184(%rbp)
 	mov (caches_struct), %rdi
-	movsxd (%rdi), %rdi 
+	movsxd (%rdi), %rdi
 	mov %rax, %rsi
 	mov $0, %rdx
 	mov $257, %rax
@@ -2011,6 +1999,36 @@ client_thr:
 	syscall
 	mov 8(%rbp), %rdi
 	jmp .client_thr.disconn
+.client_thr.501:
+	mov -164(%rbp), %rdi
+	mov $resp, %rsi
+	call bsndstr
+	mov $resp_m, %rsi
+	mov $7, %edx
+	call bsndstrbyidx
+	mov $resp, %rsi
+	mov $1, %edx
+	call bsndstrbyidx
+	mov $8, %edx
+	call bsndstrbyidx
+	call sbuffflush
+	mov 8(%rbp), %rdi
+	jmp .client_thr.closeconn
+.client_thr.505:
+	mov -164(%rbp), %rdi
+	mov $resp, %rsi
+	call bsndstr
+	mov $resp_m, %rsi
+	mov $8, %edx
+	call bsndstrbyidx
+	mov $resp, %rsi
+	mov $1, %edx
+	call bsndstrbyidx
+	mov $8, %edx
+	call bsndstrbyidx
+	call sbuffflush
+	mov 8(%rbp), %rdi
+	jmp .client_thr.closeconn
 
 cranges:
 # Computes total length of ranges
@@ -2144,7 +2162,7 @@ memset:
 memcmp:
 	lea 1(%rdx), %rcx
 	repe cmpsb
-	jrcxz .memcmp.e 
+	jrcxz .memcmp.e
 	xor %rax, %rax
 	ret
 .memcmp.e:
@@ -2891,7 +2909,7 @@ parse_args:
 	cmp $5, %rax
 	je .parse_args.daemonize
 	cmp $6, %rax
-	je .parse_args.daemonize	
+	je .parse_args.daemonize
 	cmp $7, %rax
 	je .parse_args.usage
 	mov $ERR_unknown_arg, %rdi
@@ -3359,6 +3377,8 @@ exit:
 		.asciz "408 Request Timeout"
 		.asciz "206 Partial Content"
 		.asciz "416 Range Not Satisfiable"
+		.asciz "501 Not Implemented"
+		.asciz "505 HTTP Version Not Supported"
 	types:
 		.asciz "text/html"
 		.asciz "multipart/byteranges; boundary=STR_SEP"
@@ -3369,7 +3389,7 @@ exit:
 	dcfgpath: .asciz "config"
 	ERR_ERR: .asciz "ERROR: "
 	ERR_NI: .asciz "Not implemented yet.\n"
-	ERR_setsock: .asciz "Cannot to setsockopt.\n"
+	ERR_setsock: .asciz "Cannot setsockopt.\n"
 	ERR_bind: .asciz "Cannot bind: "
 	ERR_open: .asciz "Cannot open `\0': "
 	ERR_ENOENT: .asciz "File or directory does not exist.\n"
@@ -3414,7 +3434,18 @@ exit:
 		.asciz "caches_dir="
 
 	HTTP_M: .asciz "GET"
+			.asciz "POST"
+			.asciz "HEAD"
+			.asciz "PUT"
+			.asciz "DELETE"
+			.asciz "CONNECT"
+			.asciz "OPTIONS"
+			.asciz "TRACE"
+			.asciz "PATCH"
+
 	HTTPV:  .asciz "HTTP/1.1"
+			.asciz "HTTP/1.0"
+			.asciz "HTTP/2.0"
 
 	TRUE: .asciz "true"
 	FALSE: .asciz "false"
