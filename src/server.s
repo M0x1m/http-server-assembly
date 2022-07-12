@@ -219,13 +219,16 @@ getreqpath:
 
 	ldr x1, [x29, #-16]
 .getreqpath:
-	ldrb w0, [x1], #1
+	ldrb w0, [x1, #1]!
 	cmp w0, #47
 	beq .getreqpath.0
 	cmp w0, #0
 	beq .getreqpath.1
 	b .getreqpath
 .getreqpath.0:
+	ldrb w0, [x1, #1]!
+	cmp w0, #47
+	beq .getreqpath.0
 	mov x2, x1
 .getreqpath.3:
 	ldrb w0, [x2, #1]!
@@ -345,10 +348,10 @@ client_func:
 	eor x2, x2, x2
 	mov x8, #SYS_openat
 	svc #0
-	cmp x0, #-2
-	beq .client_func.404
 	cmp x0, #-13
 	beq .client_func.403
+	cmp x0, #-1
+	blt .client_func.404
 	str w0, [x29, #-28]
 
 	eor x0, x0, x0
@@ -611,91 +614,67 @@ perror:
 	str x0, [x29, #-32]
 	add x0, x0, #4096
 	svc #0
-	ldr x1, [x29, #-32]
-	adr x0, ERR_ERR
-	str x0, [x1], #8
-	bl strlen
-	str x0, [x1], #8
-	ldr x3, [x29, #-40]
-	add x3, x3, #1
-	str x3, [x29, #-40]
-	ldr x0, [x29, #-16]
-	cmp x0, #SYS_bind
+	ldr x0, [x29, #-32]
+	adr x1, ERR_ERR
+	eor x2, x2, x2
+	eor x3, x3, x3
+	bl astrbyidx
+	ldr x4, [x29, #-16]
+	cmp x4, #SYS_bind
 	bne .perror.0
-	adr x0, ERR_bind
-	str x0, [x1], #8
-	bl strlen
-	str x0, [x1], #8
-	ldr x3, [x29, #-40]
-	add x3, x3, #1
+	adr x1, ERR_bind
+	bl astrbyidx
+	add x1, x0, #48
+	add x1, x1, x3
 	str x3, [x29, #-40]
 	ldr x0, [x29, #-24]
-	mov x3, x1
-	add x1, x3, #48
 	bl u2str
-	str x1, [x3], #8
-	mov x0, x1
-	mov x2, x3
-	bl strlen
-	str x0, [x2], #8
+	ldr x0, [x29, #-32]
+	eor x2, x2, x2
 	ldr x3, [x29, #-40]
-	add x3, x3, #1
-	str x3, [x29, #-40]
-	adr x0, ERR_bind
-	mov x1, #1
-	bl gstrbyidx
-	str x0, [x2], #8
-	bl strlen
-	str x0, [x2], #8
-	ldr x3, [x29, #-40]
-	add x3, x3, #1
-	str x3, [x29, #-40]
+	bl astrbyidx
+	adr x1, ERR_bind
+	mov x2, #1
+	bl astrbyidx
 	ldr x0, [x29, #-8]
 	cmp x0, #-13
 	bne .perror.bind.0
-	adr x0, ERR_EACCESS
-	str x0, [x2], #8
-	bl strlen
-	str x0, [x2], #8
-	ldr x3, [x29, #-40]
-	add x3, x3, #1
+	adr x1, ERR_EACCESS
+	eor x2, x2, x2
+	bl astrbyidx
 	str x3, [x29, #-40]
 	b .perror.end
 .perror.bind.0:
 	cmp x0, #-98
 	bne .perror.no
-	adr x0, ERR_EADDRINUSE
-	str x0, [x2], #8
-	bl strlen
-	str x0, [x2], #8
-	ldr x3, [x29, #-40]
-	add x3, x3, #1
+	ldr x0, [x29, #-32]
+	adr x1, ERR_EADDRINUSE
+	eor x2, x2, x2
+	bl astrbyidx
 	str x3, [x29, #-40]
 	b .perror.end
 .perror.0:
 .perror.no:
-	adr x0, ERR_NO
-	str x0, [x3], #8
-	bl strlen
-	str x0, [x3], #8
+	adr x1, ERR_NO
+	eor x2, x2, x2
+	bl astrbyidx
+	add x1, x0, #64
 	ldr x0, [x29, #-8]
 	neg x0, x0
-	add x1, x3, #64
 	bl u2str
-	str x1, [x3], #8
-	mov x0, x1
-	bl strlen
-	str x0, [x3], #8
-	adr x0, ERR_NO
-	mov x1, #1
-	bl gstrbyidx
-	str x0, [x3], #8
-	bl strlen
-	str x0, [x3], #8
+	ldr x0, [x29, #-32]
+	eor x2, x2, x2
+	bl astrbyidx
+	adr x1, ERR_NO
+	mov x2, #1
+	bl astrbyidx
+	str x3, [x29, #-40]
 .perror.end:
 	mov x0, #1
 	ldr x1, [x29, #-32]
 	ldr x2, [x29, #-40]
+	mov x3, #16
+	udiv x2, x2, x3 
 	mov x8, #SYS_writev
 	svc #0
 	ldr x0, [x29, #-32]
@@ -732,7 +711,7 @@ pg403:
 	.ascii "<title>Forbidden</title>\n"
 	.ascii "</head><body>\n"
 	.ascii "<h1>Forbidden</h1>\n"
-	.ascii "<p>You do not have permission to visit page on the requested path `\0'.</p><hr>\n"
+	.ascii "<p>You do not have permission to visit page on the requested path `/\0'.</p><hr>\n"
 	.asciz "</body></html>\n"
 
 resp:
