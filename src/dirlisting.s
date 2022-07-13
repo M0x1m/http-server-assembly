@@ -400,7 +400,7 @@ updcache:
 	mov -44(%rbp), %rsi
 	mov $1, %rax
 	syscall
-	mov -44(%rbp), %rdi
+	movl $0, -48(%rbp)
 	cmpq $0, -56(%rbp)
 	ja .updcache.0
 	mov $3, %rax
