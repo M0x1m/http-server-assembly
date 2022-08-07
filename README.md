@@ -15,7 +15,7 @@
  - [x] Directory listing
  - [x] Mime-types
  - [x] Root jail
- - [ ] Logging
+ - [x] Logging
 
 ## Getting the repository
 ```console
@@ -56,7 +56,10 @@ If configuration file cannot be found, the server's parameters will set to built
   MIME-types file name: mime.types\
   Dirlist sorting: yes\
   Dirlist caching: yes\
-  Cache directory: cache
+  Cache directory: cache\
+  Log file: server.log\
+  Do log to file: yes\
+  Do silent log: no
 
 ## Configuration
 
@@ -77,7 +80,10 @@ The server config parameters list:
   mimetypes\_path=\<path>\
   dirlist\_sorting=\<true|false>\
   dirlists\_caching=\<true|false>\
-  caches\_dir=\<dir>
+  caches\_dir=\<dir>\
+  log\_file=\<file>\
+  do\_log\_to\_file=\<true|false>\
+  do\_silent\_log=\<true|false>
 
 #### port
 
@@ -163,7 +169,21 @@ This parameter toggles caching a pages of directory listing.
 #### caches\_dir
 
 This parameter determines a location of a cache files.
-Cache directory should be empty.
+Cache directory should not have any extrinsic files or directories.
+
+#### log\_file
+
+This parameter determines a file name of a server log file.
+Server will write all logs with date and time to specified file.
+
+#### do\_log\_to\_file
+
+This parameter toggles server logs writes to the **log_file**
+
+#### do\_silent\_log
+
+This parameter toggles server logs writes to **stdout**.
+If specified **true**, the server will do not attempts to write to **stdout**, otherwise, if specified **false**, the server will writes logs only with time in **stdout**
 
 #### Commentaries
 
