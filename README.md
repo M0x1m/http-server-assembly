@@ -47,9 +47,9 @@ If configuration file cannot be found, the server's parameters will set to built
 > Binding address: 0.0.0.0(All interfaces)\
   Binding port: 80\
   The server root directory: .\
-  Default dir file: index.html\
-  Do default dir files: yes\
-  Do directory list: yes\
+  Default directory file: index.html\
+  Enable default directory files: yes\
+  Enable directory list: yes\
   Timeout: 90 000ms\
   Minimal permission: 4\
   Show hidden files(i.e. files whose names start with '.') in directory listing: yes\
@@ -58,91 +58,91 @@ If configuration file cannot be found, the server's parameters will set to built
   Dirlist caching: yes\
   Cache directory: cache\
   Log file: server.log\
-  Do log to file: yes\
-  Do silent log: no
+  Enable log to file: yes\
+  Enable silent log: no
 
 ## Configuration
 
 The server config parameters list:
-> port=\<port>\
-  host\_addr=\<ip>\
-  root=\<dir>\
-  ddir\_file=\<file>\
-  do\_ddir\_files=\<true|false>\
-  do\_dirlist=\<true|false>\
-  do\_custom\_403=\<true|false>\
-  do\_custom\_404=\<true|false>\
-  403\_path=\<path>\
-  404\_path=\<path>\
-  min\_permission=\<num>\
-  timeout=\<num>\
-  show\_hidden\_files=\<true|false>\
-  mimetypes\_path=\<path>\
-  dirlist\_sorting=\<true|false>\
-  dirlists\_caching=\<true|false>\
-  caches\_dir=\<dir>\
-  log\_file=\<file>\
-  do\_log\_to\_file=\<true|false>\
-  do\_silent\_log=\<true|false>
+> server-port=\<port>\
+  server-binding-device-address=\<ip>\
+  server-root=\<dir>\
+  default-directory-file-name=\<file>\
+  enable-default-directory-files=\<true|false>\
+  enable-dirlisting=\<true|false>\
+  enable-custom-403-page=\<true|false>\
+  enable-custom-404-page=\<true|false>\
+  403-page-file-path=\<path>\
+  404-page-file-path=\<path>\
+  minimal-openning-permission=\<num>\
+  client-request-timeout=\<num>\
+  enable-hidden-files-in-dirlisting=\<true|false>\
+  mimetypes-file-path=\<path>\
+  enable-dirlists-sorting=\<true|false>\
+  enable-dirlists-caching=\<true|false>\
+  caches-directory-name=\<dir>\
+  log-file-path=\<file>\
+  enable-logging-to-file=\<true|false>\
+  enable-silent-logging=\<true|false>
 
-#### port
+#### server-port
 
 This parameter defines the server binding port.
 
-#### host\_addr
+#### server-binding-device-address
 
 This parameter defines the server binding address.\
 This parameter is used to bind the server to the specified network interface.
 
-#### root
+#### server-root-directory
 
 This parameter defines the server's root directory.\
 The client won't have access to files and directories below the server root.
 
-#### ddir\_file
+#### default-directory-file-name
 
 This parameter the defines default file name of file that will be opened in requested directory when client requests a directory.
 
-#### do\_ddir\_files
+#### enable-default-directory-files
 
-This parameter toggles opening files in requested directories by [default file name](#ddir_file) when client requests a directory.
+This parameter toggles opening files in requested directories by [default file name](#default-directory-file-name) when client requests a directory.
 
-#### do\_dirlist
+#### enable-dirlisting
 
 This parameter toggles sending HTML page of the directory content what client had requested.\
 HTML page will be make and send if default directory file cannot be found or default files are disabled.
 
-#### 404\_path
+#### 404-page-file-path
 
 This parameter defines path to 404 http error page.
 
-#### 403\_path
+#### 403-page-file-path
 
-Same as [404](#404_path)
+Same as [404](#404-page-file-path)
 
-#### do\_custom\_404
+#### enable-custom-404-page
 
-This parameter toggles using of page described by [404\_path option](#404_path)
+This parameter toggles using of page described by [404-page-file-path option](#404-page-file-path)
 
-#### do\_custom\_403
+#### enable-custom-403-page
 
-Same as [do\_custom\_404](#do\_custom_404)
+Same as [enable-custom-404-page](#enable-custom-404-page)
 
-#### min\_permission
+#### minimal-openning-permission
 
 This parameter defines minimal permission for file or directory openning or listing. If the permission less than this option the server sends 403 error response.\
 The permission that the server checks have defined in `others` permission group of file or directory.\
 The permission parameter can be from 0(---) to 7(xwr). If the permission is `0` the server will try to open any files.
 
-#### timeout
+#### client-request-timeout
 
 This parameter sets timeout in milliseconds for client request. If client timed out the server sends 408 error response.
 
-#### show\_hidden\_files
+#### enable-hidden-files-in-dirlisting
 
 Files whose names start with `.` are considered hidden. Thus this parameter determines showing the files in directory listing whose name start with `.`.
 
-#### mimetypes\_path
+#### mimetypes-file-path
 
 This parameter defines the path to MIME-types file instead of the built-in path: `mime.types`
 
@@ -156,31 +156,31 @@ text/x-c       c cc cxx cpp h hh hpp
 text/html      html htm
 ```
 
-#### dirlist\_sorting
+#### enable-dirlists-sorting
 
 This parameter toggles sorting by name in directory listing.
 
 **WARNING:** Sorting can doing long on directories with a lot of entries. For example directory with 14638 entries is sorted in 16.6 seconds(CPU: Athlon 64 X2 4200+ 2200MHz).
 
-#### dirlists\_caching
+#### enable-dirlists-caching
 
 This parameter toggles caching a pages of directory listing.
 
-#### caches\_dir
+#### caches-directory-name
 
 This parameter determines a location of a cache files.
 Cache directory should not have any extrinsic files or directories.
 
-#### log\_file
+#### log-file-path
 
 This parameter determines a file name of a server log file.
 Server will write all logs with date and time to specified file.
 
-#### do\_log\_to\_file
+#### enable-logging-to-file
 
-This parameter toggles server logs writes to the **log_file**
+This parameter toggles server logs writes to the **log-file-path**
 
-#### do\_silent\_log
+#### enable-silent-logging
 
 This parameter toggles server logs writes to **stdout**.
 If specified **true**, the server will do not attempts to write to **stdout**, otherwise, if specified **false**, the server will writes logs only with time in **stdout**
