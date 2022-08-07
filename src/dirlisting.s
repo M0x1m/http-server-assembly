@@ -80,6 +80,7 @@ abspath:
 	cmpb $47, -2(%rdi, %rax)
 	je .abspath
 	movw $47, -1(%rdi, %rax)
+	jmp .abspath.3
 .abspath:
 	decl -24(%rbp)
 .abspath.3:
@@ -99,11 +100,6 @@ abspath:
 	mov -20(%rbp), %rdi
 	add %rax, %rdi
 	call memcpy
-	movsxd -24(%rbp), %rax
-	mov -20(%rbp), %rdi
-	add %rax, %rdi
-	movsxd -28(%rbp), %rax
-	movb $0, 1(%rdi, %rax)
 	mov -20(%rbp), %rax
 	jmp _procret
 .abspath.2:
@@ -176,9 +172,11 @@ _chkappend:
 	add %rax, (%rdi)
 	jmp _procret
 
+.ifndef _procret
 _procret:
 	leave
 	ret
+.endif
 
 # struct caches{
 #	int fd;		   // dirfd of cache directory
@@ -317,6 +315,11 @@ mkcache:
 	mov -24(%rbp), %rax
 	mov %rax, 12(%rdi)
 	incq 4(%rdi)
+	push 16(%rbp)
+	push -48(%rbp)
+	mov %rsp, %rsi
+	mov $10, %rdi
+	call log
 	jmp _procret
 
 updcache:

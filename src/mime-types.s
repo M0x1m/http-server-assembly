@@ -12,9 +12,11 @@
 #   char extns[extnn][]; // NULL-terminated strings of extensions for the type above
 # };
 
+.ifndef _procret
 _procret:
 	leave
 	ret
+.endif
 
 .globl loadmtypes
 .globl findtype

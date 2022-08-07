@@ -167,6 +167,7 @@ _swwbuf:
 .globl buffgetc
 .globl buffclose
 .globl buffattach
+.globl buffread
 .globl sbuffattach # sbuff prefix determines usage with sockets, streams(stdout, stdin)
 .globl sbuffgetc
 .globl sbuffwrite
@@ -495,6 +496,63 @@ buffseek:
 	movzxw 20(%rsi), %rbx
 	add %rbx, %rax
 	mov -8(%rbp), %rdi
+	jmp _procret
+
+buffread:
+# rdi - dest
+# rsi - FILEB ptr
+# rdx - length
+# ret rax - readed length
+	push %rbp
+	mov %rsp, %rbp
+	mov %rdi, -8(%rbp)
+	mov %rsi, -16(%rbp)
+	mov %rdx, -24(%rbp)
+	movq $0, -40(%rbp)
+	sub $40, %rsp
+	mov 4(%rsi), %rax
+	movzxw 20(%rsi), %rbx
+	add 12(%rsi), %rbx
+	cmp %rax, %rbx
+	jb .buffread.0
+	xor %rax, %rax
+	jmp _procret
+.buffread.0:
+	mov -16(%rbp), %rax
+	mov -24(%rbp), %rdi
+	mov 4(%rax), %rsi
+	movzxw 20(%rax), %rbx
+	add 12(%rax), %rbx
+	sub %rbx, %rsi
+	call min
+	mov %rax, -32(%rbp)
+.buffread.1:
+	mov -32(%rbp), %rdi
+	mov $65535, %rsi
+	mov -16(%rbp), %rax
+	sub 20(%rax), %si
+	call min
+	mov %rax, %rdx
+	mov -8(%rbp), %rdi
+	mov -16(%rbp), %rsi
+	movzxw 20(%rsi), %rax
+	lea 22(%rsi, %rax), %rsi
+	call memcpy
+	sub %rdx, -32(%rbp)
+	mov -16(%rbp), %rax
+	add %dx, 20(%rax)
+	add %rdx, -40(%rbp)
+	cmpq $0, -32(%rbp)
+	je .buffread.2
+	cmpw $65535, 20(%rax)
+	jne .buffread.2
+	movw $0, 20(%rax)
+	mov -16(%rbp), %rdi
+	call _buffload
+.buffread.2:
+	cmpq $0, -32(%rbp)
+	ja .buffread.1
+	mov -40(%rbp), %rax
 	jmp _procret
 
 buffgetc:
