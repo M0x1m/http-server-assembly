@@ -2167,6 +2167,9 @@ client_thr:
 	mov $11, %rdi
 	call log
 	add $16, %rsp
+	mov $23, %rdi
+	mov 16(%rbp), %rsi
+	call log
 	mov 16(%rbp), %rdi
 	jmp .client_thr.disconn
 .client_thr.501:
