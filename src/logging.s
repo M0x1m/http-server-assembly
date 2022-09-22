@@ -682,6 +682,7 @@ log:
 	call memmov
 	movw $0x205d, 8(%rdi)
 	mov -42(%rbp), %rdi
+	xor %rsi, %rsi
 	call asctime
 	mov %rax, %rsi
 	mov -32(%rbp), %rdi
@@ -712,6 +713,7 @@ log:
 	push %rdx
 	call memmov
 	mov -42(%rbp), %rdi
+	xor %rsi, %rsi
 	call ascdate
 	mov %rax, %rsi
 	mov -32(%rbp), %rdi

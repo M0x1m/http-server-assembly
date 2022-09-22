@@ -26,6 +26,7 @@
 .globl diropen
 .globl fdiropen
 .globl genpage
+.globl genpage_table
 .globl _chkappend
 .globl sortdir
 .globl dirfload
@@ -114,7 +115,7 @@ _chkappend2:
 # rdi - start addr ptr
 # rsi - curr offt
 # rdx - curr length
-# r10 - pending data to write
+# r10 - pending data length to write
 # ret rax - new mapped size of mem
 	push %rbp
 	mov %rsp, %rbp
@@ -883,7 +884,7 @@ genpage:
 	mov $65536, %rsi
 	mov $3, %rdx
 	mov $34, %r10
-	xor %r8, %r8
+	mov $-1, %r8
 	xor %r9, %r9
 	mov $9, %rax
 	syscall
@@ -1027,8 +1028,255 @@ genpage:
 .data
 .genpage.s0: .asciz "<hr><pre>\n"
 .genpage.s1: .asciz "<a href=\"./\0</a>\n"
-.genpage.s2: .asciz "</pre><hr>\n</html>\n"
+.genpage.s2: .asciz "</pre><hr></body>\n</html>\n"
 .text
+
+genpage_table:
+# Same arguments as genpage
+	push %rbp
+	mov %rsp, %rbp
+	mov %rdi, -8(%rbp)
+	mov %rsi, -16(%rbp)
+	sub $40, %rsp
+	xor %rdi, %rdi
+	mov $65536, %rsi
+	mov $3, %rdx
+	mov $34, %r10
+	mov $-1, %r8
+	xor %r9, %r9
+	mov $9, %rax
+	syscall
+	mov %rax, -24(%rbp)
+	movq $0, -40(%rbp)
+	movq $65536, -32(%rbp)
+	mov $.genpage_table.s0, %rdi
+	call strlen
+	mov %rax, %rdx
+	add %rax, -40(%rbp)
+	mov %rdi, %rsi
+	mov -24(%rbp), %rdi
+	call memcpy
+.genpage_table.0:
+	mov -8(%rbp), %rdi
+	call dirread
+	cmp $0, %rax
+	jle .genpage_table.1
+	cmpw $11822, 19(%rax)
+	je .genpage_table.2
+	cmpw $46, 19(%rax)
+	je .genpage_table.0
+	cmpb $46, 19(%rax)
+	jne .genpage_table.2
+	testw $256, (fls)
+	jz .genpage_table.0
+.genpage_table.2:
+	push %rax
+	lea -24(%rbp), %rdi
+	mov -40(%rbp), %rsi
+	mov -32(%rbp), %rdx
+	mov $1024, %r10
+	call _chkappend2
+	mov %rax, -32(%rbp)
+	mov $.genpage_table.s2, %rdi
+	call strlen
+	mov %rax, %rdx
+	mov %rdi, %rsi
+	mov -24(%rbp), %rdi
+	add -40(%rbp), %rdi
+	add %rdx, -40(%rbp)
+	call memcpy
+	mov (%rsp), %rax
+	lea 19(%rax), %rdi
+	call strlen
+	mov %rax, %rdx
+	mov %rdi, %rsi
+	mov -24(%rbp), %rdi
+	add -40(%rbp), %rdi
+	add %rdx, -40(%rbp)
+	call memcpy
+	mov (%rsp), %rax
+	cmpb $4, 18(%rax)
+	jne .genpage_table.3
+	incq -40(%rbp)
+	mov -24(%rbp), %rdi
+	add -40(%rbp), %rdi
+	movb $47, -1(%rdi)
+.genpage_table.3:
+	mov $.genpage_table.s2, %rdi
+	mov $1, %rsi
+	call getstrbyidx
+	mov %rax, %rdi
+	call strlen
+	mov %rax, %rdx
+	mov %rdi, %rsi
+	mov -24(%rbp), %rdi
+	add -40(%rbp), %rdi
+	add %rdx, -40(%rbp)
+	call memcpy
+	mov (%rsp), %rax
+	lea 19(%rax), %rdi
+	call strlen
+	mov %rax, %rdx
+	mov %rdi, %rsi
+	mov -24(%rbp), %rdi
+	add -40(%rbp), %rdi
+	add %rdx, -40(%rbp)
+	call memcpy
+	mov (%rsp), %rax
+	cmpb $4, 18(%rax)
+	jne .genpage_table.4
+	incq -40(%rbp)
+	mov -24(%rbp), %rdi
+	add -40(%rbp), %rdi
+	movb $47, -1(%rdi)
+.genpage_table.4:
+	mov $.genpage_table.s2, %rdi
+	mov $2, %rsi
+	call getstrbyidx
+	mov %rax, %rdi
+	call strlen
+	mov %rax, %rdx
+	mov %rdi, %rsi
+	mov -24(%rbp), %rdi
+	add -40(%rbp), %rdi
+	add %rdx, -40(%rbp)
+	call memcpy
+	sub $144, %rsp
+	mov -8(%rbp), %rdi
+	mov (%rdi), %edi
+	mov 144(%rsp), %rsi
+	add $19, %rsi
+	mov %rsp, %rdx
+	xor %r10, %r10
+	mov $262, %rax
+	syscall
+	call getloctime
+	add %rax, 88(%rsp)
+	mov 88(%rsp), %rdi
+	mov -24(%rbp), %rsi
+	add -40(%rbp), %rsi
+	call ascdate
+	addq $11, -40(%rbp)
+	mov -24(%rbp), %rdi
+	add -40(%rbp), %rdi
+	movb $32, -1(%rdi)
+	mov 88(%rsp), %rdi
+	mov -24(%rbp), %rsi
+	add -40(%rbp), %rsi
+	call asctime
+	addq $8, -40(%rbp)
+	mov $.genpage_table.s2, %rdi
+	mov $3, %rsi
+	call getstrbyidx
+	mov %rax, %rdi
+	call strlen
+	mov %rax, %rdx
+	mov %rdi, %rsi
+	mov -24(%rbp), %rdi
+	add -40(%rbp), %rdi
+	add %rdx, -40(%rbp)
+	call memcpy
+	mov -24(%rbp), %rsi
+	add -40(%rbp), %rsi
+	movq 48(%rsp), %rdi
+	call kmgt
+	add %rax, -40(%rbp)
+	mov $.genpage_table.s2, %rdi
+	mov $4, %rsi
+	call getstrbyidx
+	mov %rax, %rdi
+	call strlen
+	mov %rax, %rdx
+	mov %rdi, %rsi
+	mov -24(%rbp), %rdi
+	add -40(%rbp), %rdi
+	add %rdx, -40(%rbp)
+	call memcpy
+	add $152, %rsp
+	jmp .genpage_table.0
+.genpage_table.1:
+	mov $.genpage_table.s1, %rdi
+	call strlen
+	mov %rax, %rdx
+	mov %rdi, %rsi
+	mov -24(%rbp), %rdi
+	add -40(%rbp), %rdi
+	add %rdx, -40(%rbp)
+	call memcpy
+	mov -32(%rbp), %rax
+	mov -16(%rbp), %rbx
+	mov %rax, (%rbx)
+	mov -24(%rbp), %rax
+	jmp _procret
+.data
+.genpage_table.s0: .asciz "<style>\ntd {\nborder: 1px solid #101010;\n padding: 0.5em;\n}\n th {\nborder: 1px solid #101010;\n}\n table {\nborder-collapse: collapse;\n}\n</style><hr><table><thead><tr><th>Name</th><th>Modification Date</th><th>Size</th></tr></thead><tbody>\n"
+.genpage_table.s1: .asciz "</tbody>\n</table>\n</body></html>\n"
+.genpage_table.s2: .asciz "<tr><td><a href=\"./\0\">\0</a></td><td>\0</td><td>\0</td></tr>\n"
+.text
+
+kmgt:
+# rdi - num
+# rsi - str_ptr
+# ret rax - len
+	push %rbp
+	mov %rsp, %rbp
+	mov %rdi, -8(%rbp)
+	mov %rsi, -16(%rbp)
+	sub $17, %rsp
+	mov $10<<40, %rax
+	cmpq %rax, -8(%rbp)
+	jb .kmgt.g
+	mov -8(%rbp), %rax
+	mov $1<<40, %rbx
+	xor %rdx, %rdx
+	div %rbx
+	movb $84, -17(%rbp)
+	jmp .kmgt.r
+.kmgt.g:
+	mov $10<<30, %rax
+	cmpq %rax, -8(%rbp)
+	jb .kmgt.m
+	mov -8(%rbp), %rax
+	mov $1<<30, %rbx
+	xor %rdx, %rdx
+	div %rbx
+	movb $71, -17(%rbp)
+	jmp .kmgt.r
+.kmgt.m:
+	cmpq $10<<20, -8(%rbp)
+	jb .kmgt.k
+	mov -8(%rbp), %rax
+	mov $1<<20, %rbx
+	xor %rdx, %rdx
+	div %rbx
+	movb $77, -17(%rbp)
+	jmp .kmgt.r
+.kmgt.k:
+	cmpq $10<<10, -8(%rbp)
+	jb .kmgt.b
+	mov -8(%rbp), %rax
+	mov $1<<10, %rbx
+	xor %rdx, %rdx
+	div %rbx
+	movb $75, -17(%rbp)
+	jmp .kmgt.r
+.kmgt.b:
+	mov -8(%rbp), %rax
+	movb $66, -17(%rbp)
+.kmgt.r:
+	mov %rax, %rdi
+	call utostr
+	mov %rax, %rsp
+	mov %rsp, %rdi
+	call strlen
+	mov %rax, %rdx
+	mov %rdi, %rsi
+	mov -16(%rbp), %rdi
+	call memcpy
+	mov -17(%rbp), %al
+	movb %al, (%rdi, %rdx)
+	lea 1(%rdx), %rax
+	jmp _procret
 
 dirread:
 # rdi - dirent struct ptr

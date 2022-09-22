@@ -59,7 +59,8 @@ If configuration file cannot be found, the server's parameters will set to built
   Cache directory: cache\
   Log file: server.log\
   Enable log to file: yes\
-  Enable silent log: no
+  Enable silent log: no\
+  Table view dirlisting: yes
 
 ## Configuration
 
@@ -83,7 +84,8 @@ The server config parameters list:
   caches-directory-name=\<dir>\
   log-file-path=\<file>\
   enable-logging-to-file=\<true|false>\
-  enable-silent-logging=\<true|false>
+  enable-silent-logging=\<true|false>\
+  table-view-dirlisting=\<true|false>
 
 #### server-port
 
@@ -184,6 +186,10 @@ This parameter toggles server logs writes to the **log-file-path**
 
 This parameter toggles server logs writes to **stdout**.
 If specified **true**, the server will do not attempts to write to **stdout**, otherwise, if specified **false**, the server will writes logs only with time in **stdout**
+
+#### table-view-dirlisting
+
+This parameter toggles using of HTML table tags for dirlistings instead of simple list of links. If specified  **true**, the server in dirlisting also writes modification time and size in row for each file in requested directory.
 
 #### Commentaries
 

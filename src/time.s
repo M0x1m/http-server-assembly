@@ -4,6 +4,7 @@
 .globl asctime
 .globl ascdate
 .globl cpustr
+.globl getloctime
 
 ntohl:
 	push %rbp
@@ -98,7 +99,7 @@ getloctime:
 	leave
 	ret
 .getloctime.err:
-	mov $-1, %rax
+	mov $0, %rax
 	jmp .getloctime.ret
 
 time:
@@ -269,17 +270,25 @@ cdm:
 
 ascdate:
 # rdi - time
+# rsi - str_ptr
 	push %rbp
 	mov %rsp, %rbp
 	mov %rdi, -8(%rbp)
 	movl $0, -12(%rbp)
-	sub $20, %rsp
+	cmp $0, %rsi
+	jne .ascdate
+	movq $ascdate_buf, -28(%rbp)
+	jmp .ascdate.0
+.ascdate:
+	mov %rsi, -28(%rbp)
+.ascdate.0:
+	sub $28, %rsp
 	mov -8(%rbp), %rdi
 	call cdate
 	mov %rax, -20(%rbp)
 	shr $9, %rax
 	lea 1970(%rax), %rsi
-	mov $ascdate_buf, %rdi
+	mov -28(%rbp), %rdi
 	xor %dl, %dl
 	call cpustr
 	add %eax, -12(%rbp)
@@ -288,8 +297,8 @@ ascdate:
 	addl $1, -12(%rbp)
 	mov -20(%rbp), %rsi
 	shr $5, %rsi
-	and $0xf, %rsi	
-	mov $ascdate_buf, %rdi
+	and $0xf, %rsi
+	mov -28(%rbp), %rdi
 	movsxd -12(%rbp), %rax
 	lea (%rdi, %rax), %rdi
 	mov $2, %dl
@@ -301,23 +310,31 @@ ascdate:
 	mov $2, %dl
 	mov -20(%rbp), %rsi
 	and $0x1f, %rsi
-	mov $ascdate_buf, %rdi
+	mov -28(%rbp), %rdi
 	movsxd -12(%rbp), %rax
 	lea (%rdi, %rax), %rdi
 	call cpustr
 	add %eax, -12(%rbp)
 	movb $32, (%rdi, %rax)
-	mov $ascdate_buf, %rax
+	mov -28(%rbp), %rax
 	leave
 	ret
 
 asctime:
 # rdi - time
+# rsi - dest_str_ptr
 	push %rbp
 	mov %rsp, %rbp
 	mov %rdi, -8(%rbp)
 	movl $0, -12(%rbp)
-	sub $12, %rsp
+	cmp $0, %rsi
+	je .asctime
+	mov %rsi, -20(%rbp)
+	jmp .asctime.0
+.asctime:
+	movq $asctime_buf, -20(%rbp)
+.asctime.0:
+	sub $20, %rsp
 	mov -8(%rbp), %rax
 	mov $HOUR, %rbx
 	xor %rdx, %rdx
@@ -326,7 +343,7 @@ asctime:
 	xor %rdx, %rdx
 	div %rbx
 	mov %rdx, %rsi
-	mov $asctime_buf, %rdi
+	mov -20(%rbp), %rdi
 	movsxd -12(%rbp), %rax
 	lea (%rdi, %rax), %rdi
 	mov $2, %dl
@@ -342,7 +359,7 @@ asctime:
 	xor %rdx, %rdx
 	div %rbx
 	mov %rdx, %rsi
-	mov $asctime_buf, %rdi
+	mov -20(%rbp), %rdi
 	movsxd -12(%rbp), %rax
 	lea (%rdi, %rax), %rdi
 	mov $2, %dl
@@ -355,12 +372,12 @@ asctime:
 	xor %rdx, %rdx
 	div %rbx
 	mov %rdx, %rsi
-	mov $asctime_buf, %rdi
+	mov -20(%rbp), %rdi
 	movsxd -12(%rbp), %rax
 	lea (%rdi, %rax), %rdi
 	mov $2, %dl
 	call cpustr
-	mov $asctime_buf, %rax
+	mov -20(%rbp), %rax
 	leave
 	ret
 

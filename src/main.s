@@ -2086,7 +2086,13 @@ client_thr:
 	add $8, %rsp
 	mov 8(%rsp), %rdi
 	mov %rsp, %rsi
+	testw $1<<13, (fls)
+	jnz .client_thr.dirlist.tb
 	call genpage
+	jmp .client_thr.dirlist.en
+.client_thr.dirlist.tb:
+	call genpage_table
+.client_thr.dirlist.en:
 	push %rax
 	mov -164(%rbp), %rdi
 	mov %rax, %rsi
@@ -2526,7 +2532,7 @@ println:
 	mov $1, %rax
 	syscall
 	mov -8(%rbp), %rdi
-	mov %rbp, %rsp 
+	mov %rbp, %rsp
 	pop %rbp
 	ret
 
@@ -2674,7 +2680,7 @@ parse_cfg:
 	mov %rdi, -16(%rbp)
 	mov %rdi, %rsp
 	mov $CFG_KEYWORDS, %rsi
-	mov $20, %rdx
+	mov $21, %rdx
 	call strinstrs
 	cmp $0, %rax
 	je .parse_cfg.port
@@ -2716,6 +2722,8 @@ parse_cfg:
 	je .parse_cfg.log_file
 	cmp $19, %rax
 	je .parse_cfg.do_silent_log
+	cmp $20, %rax
+	je .parse_cfg.table_view
 	mov -16(%rbp), %rdi
 	mov -24(%rbp), %rsi
 	call unexp_word
@@ -3102,6 +3110,30 @@ parse_cfg:
 	andw $~4096, (fls)
 	jmp .parse_cfg.opts
 .parse_cfg.do_silent_log.1:
+	mov -24(%rbp), %rsi
+	mov %rsp, %rdi
+	call unexp_word
+	jmp .parse_cfg.opts
+.parse_cfg.table_view:
+	mov -8(%rbp), %rdi
+	lea -24(%rbp), %rsi
+	call getval
+	mov %rax, %rsp
+	mov %rsp, %rdi
+	mov $TRUE, %rsi
+	call streq
+	cmpb $0, %al
+	je .parse_cfg.table_view.0
+	orw $1<<13, (fls)
+	jmp .parse_cfg.opts
+.parse_cfg.table_view.0:
+	mov $FALSE, %rsi
+	call streq
+	cmpb $0, %al
+	je .parse_cfg.table_view.1
+	andw $~(1<<13), (fls)
+	jmp .parse_cfg.opts
+.parse_cfg.table_view.1:
 	mov -24(%rbp), %rsi
 	mov %rsp, %rdi
 	call unexp_word
@@ -3586,7 +3618,7 @@ exit:
 
 	argc: .quad 0
 	args: .quad 0
-	fls: .byte 136, 15
+	fls: .byte 136, 31
 #	[arg] port = 0 << 0
 #	[arg] serv addr = 0 << 1
 #	[arg] root = 0 << 2
@@ -3600,6 +3632,7 @@ exit:
 #   [cfg] dirlists_caching = 1 << 10
 #   [cfg] do_log_to_file = 1 << 11
 #   [cfg] do_silent_log = 0 << 12
+#   [cfg] table-view-dirlisting = 1 << 13
 
 	stdout: .quad 0
 	stderr: .quad 0
@@ -3730,6 +3763,7 @@ exit:
 		.asciz "enable-loging-to-file="
 		.asciz "log-file-path="
 		.asciz "enable-silent-loging="
+		.asciz "table-view-dirlisting="
 
 	HTTP_M: .asciz "GET"
 			.asciz "POST"
