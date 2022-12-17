@@ -3760,9 +3760,9 @@ exit:
 		.asciz "enable-dirlists-sorting="
 		.asciz "enable-dirlists-caching="
 		.asciz "caches-directory-name="
-		.asciz "enable-loging-to-file="
+		.asciz "enable-logging-to-file="
 		.asciz "log-file-path="
-		.asciz "enable-silent-loging="
+		.asciz "enable-silent-logging="
 		.asciz "table-view-dirlisting="
 
 	HTTP_M: .asciz "GET"
