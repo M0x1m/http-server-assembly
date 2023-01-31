@@ -656,20 +656,24 @@ getrange:
 # Sets the "ranges" structure pointer from the ranges in requests to rsi address
 # rdi - client stream
 # rsi - address for load structure
-# ret rax - number of ranges in structure founded in request
+# ret rax - number of ranges in structure found in request
 	push %rbp
 	mov %rsp, %rbp
 	mov %rdi, -8(%rbp)
 	mov %rsi, -16(%rbp)
 	movw $0, -30(%rbp)
-	sub $630, %rsp
+	sub $30, %rsp
+	movzxw 4(%rdi), %rax
+	add 8(%rdi), %ax
+	push %rax  # -38(%rbp) is the rest request size
+	sub %rax, %rsp
 	mov %rsp, %rdi
 	xor %sil, %sil
-	mov $600, %rdx
+	mov -38(%rbp), %rdx
 	call memset
 	mov -8(%rbp), %rdi
 	mov %rsp, %rsi
-	mov $600, %rdx
+	mov -38(%rbp), %rdx
 	mov $-2, %r10
 	call sbuffread
 	cmp $0, %rax
