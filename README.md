@@ -1,6 +1,13 @@
 # Http Assembly server
 
-[HTTP](https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol) [server](https://en.wikipedia.org/wiki/Server_(computing)) written in [x86\_64](https://en.wikipedia.org/wiki/X86-64) [assembly language](https://en.wikipedia.org/wiki/Assembly_language)\([GNU assembler](https://en.wikipedia.org/wiki/GNU_Assembler)\) for [Linux](https://en.wikipedia.org/wiki/Linux).
+[HTTP] [server] written in [x86\_64] [assembly language]\([GNU assembler]\) for [Linux].
+
+[HTTP]: https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol
+[server]: https://en.wikipedia.org/wiki/Server_(computing)
+[x86\_64]: https://en.wikipedia.org/wiki/X86-64
+[assembly language]: https://en.wikipedia.org/wiki/Assembly_language
+[GNU assembler]: https://en.wikipedia.org/wiki/GNU_Assembler
+[Linux]: https://en.wikipedia.org/wiki/Linux
 
 ## The server possibilities
 
@@ -41,50 +48,52 @@ $ ./server [{-d|--daemonize}, {-h|--help},
             {--config=(path to the server config)}]
 ```
 
-The server without arguments will start according to the parameters of the configuration file.\
-If configuration file cannot be found, the server's parameters will set to built-in parameters:
+The server without arguments will start according to the parameters of the
+configuration file. \
+If configuration file cannot be found, the server's parameters will set to
+built-in parameters:
 
-> Binding address: 0.0.0.0(All interfaces)\
-  Binding port: 80\
-  The server root directory: .\
-  Default directory file: index.html\
-  Enable default directory files: yes\
-  Enable directory list: yes\
-  Timeout: 90 000ms\
-  Minimal permission: 4\
-  Show hidden files(i.e. files whose names start with '.') in directory listing: yes\
-  MIME-types file name: mime.types\
-  Dirlist sorting: yes\
-  Dirlist caching: yes\
-  Cache directory: cache\
-  Log file: server.log\
-  Enable log to file: yes\
-  Enable silent log: no\
+> Binding address: 0.0.0.0(All interfaces)                                           \
+  Binding port: 80                                                                   \
+  The server root directory: .                                                       \
+  Default directory file: index.html                                                 \
+  Enable default directory files: yes                                                \
+  Enable directory list: yes                                                         \
+  Timeout: 90 000ms                                                                  \
+  Minimal permission: 4                                                              \
+  Show hidden files(i.e. files whose names start with '.') in directory listing: yes \
+  MIME-types file name: mime.types                                                   \
+  Dirlist sorting: yes                                                               \
+  Dirlist caching: yes                                                               \
+  Cache directory: cache                                                             \
+  Log file: server.log                                                               \
+  Enable log to file: yes                                                            \
+  Enable silent log: no                                                              \
   Table view dirlisting: yes
 
 ## Configuration
 
 The server config parameters list:
-> server-port=\<port>\
-  server-binding-device-address=\<ip>\
-  server-root=\<dir>\
-  default-directory-file-name=\<file>\
-  enable-default-directory-files=\<true|false>\
-  enable-dirlisting=\<true|false>\
-  enable-custom-403-page=\<true|false>\
-  enable-custom-404-page=\<true|false>\
-  403-page-file-path=\<path>\
-  404-page-file-path=\<path>\
-  minimal-openning-permission=\<num>\
-  client-request-timeout=\<num>\
-  enable-hidden-files-in-dirlisting=\<true|false>\
-  mimetypes-file-path=\<path>\
-  enable-dirlists-sorting=\<true|false>\
-  enable-dirlists-caching=\<true|false>\
-  caches-directory-name=\<dir>\
-  log-file-path=\<file>\
-  enable-logging-to-file=\<true|false>\
-  enable-silent-logging=\<true|false>\
+> server-port=\<port>                             \
+  server-binding-device-address=\<ip>             \
+  server-root=\<dir>                              \
+  default-directory-file-name=\<file>             \
+  enable-default-directory-files=\<true|false>    \
+  enable-dirlisting=\<true|false>                 \
+  enable-custom-403-page=\<true|false>            \
+  enable-custom-404-page=\<true|false>            \
+  403-page-file-path=\<path>                      \
+  404-page-file-path=\<path>                      \
+  minimal-openning-permission=\<num>              \
+  client-request-timeout=\<num>                   \
+  enable-hidden-files-in-dirlisting=\<true|false> \
+  mimetypes-file-path=\<path>                     \
+  enable-dirlists-sorting=\<true|false>           \
+  enable-dirlists-caching=\<true|false>           \
+  caches-directory-name=\<dir>                    \
+  log-file-path=\<file>                           \
+  enable-logging-to-file=\<true|false>            \
+  enable-silent-logging=\<true|false>             \
   table-view-dirlisting=\<true|false>
 
 #### server-port
@@ -93,26 +102,30 @@ This parameter defines the server binding port.
 
 #### server-binding-device-address
 
-This parameter defines the server binding address.\
+This parameter defines the server binding address. \
 This parameter is used to bind the server to the specified network interface.
 
 #### server-root-directory
 
-This parameter defines the server's root directory.\
+This parameter defines the server's root directory. \
 The client won't have access to files and directories below the server root.
 
 #### default-directory-file-name
 
-This parameter the defines default file name of file that will be opened in requested directory when client requests a directory.
+This parameter the defines default file name of file that will be opened in
+requested directory when client requests a directory.
 
 #### enable-default-directory-files
 
-This parameter toggles opening files in requested directories by [default file name](#default-directory-file-name) when client requests a directory.
+This parameter toggles opening files in requested directories by [default file
+name](#default-directory-file-name) when client requests a directory.
 
 #### enable-dirlisting
 
-This parameter toggles sending HTML page of the directory content what client had requested.\
-HTML page will be make and send if default directory file cannot be found or default files are disabled.
+This parameter toggles sending HTML page of the directory content what client
+had requested. \
+HTML page will be make and send if default directory file cannot be found or
+default files are disabled.
 
 #### 404-page-file-path
 
@@ -132,21 +145,28 @@ Same as [enable-custom-404-page](#enable-custom-404-page)
 
 #### minimal-openning-permission
 
-This parameter defines minimal permission for file or directory openning or listing. If the permission less than this option the server sends 403 error response.\
-The permission that the server checks have defined in `others` permission group of file or directory.\
-The permission parameter can be from 0(---) to 7(xwr). If the permission is `0` the server will try to open any files.
+This parameter defines minimal permission for file or directory openning or
+listing. If the permission less than this option the server sends 403 error
+response. \
+The permission that the server checks have defined in `others` permission
+group of file or directory. \
+The permission parameter can be from 0(---) to 7(xwr). If the permission is
+`0` the server will try to open any files.
 
 #### client-request-timeout
 
-This parameter sets timeout in milliseconds for client request. If client timed out the server sends 408 error response.
+This parameter sets timeout in milliseconds for client request. If client
+timed out the server sends 408 error response.
 
 #### enable-hidden-files-in-dirlisting
 
-Files whose names start with `.` are considered hidden. Thus this parameter determines showing the files in directory listing whose name start with `.`.
+Files whose names start with `.` are considered hidden. Thus this parameter
+determines showing the files in directory listing whose name start with `.`.
 
 #### mimetypes-file-path
 
-This parameter defines the path to MIME-types file instead of the built-in path: `mime.types`
+This parameter defines the path to MIME-types file instead of the built-in
+path: `mime.types`
 
 Mime types file syntax:
 ```
@@ -162,7 +182,9 @@ text/html      html htm
 
 This parameter toggles sorting by name in directory listing.
 
-**WARNING:** Sorting can doing long on directories with a lot of entries. For example directory with 14638 entries is sorted in 16.6 seconds(CPU: Athlon 64 X2 4200+ 2200MHz).
+**WARNING:** Sorting can doing long on directories with a lot of entries. For
+  example directory with 14638 entries is sorted in 16.6 seconds(CPU: Athlon
+  64 X2 4200+ 2200MHz).
 
 #### enable-dirlists-caching
 
@@ -185,11 +207,15 @@ This parameter toggles server logs writes to the **log-file-path**
 #### enable-silent-logging
 
 This parameter toggles server logs writes to **stdout**.
-If specified **true**, the server will do not attempts to write to **stdout**, otherwise, if specified **false**, the server will writes logs only with time in **stdout**
+If specified **true**, the server will do not attempts to write to **stdout**,
+otherwise, if specified **false**, the server will writes logs only with time
+in **stdout**
 
 #### table-view-dirlisting
 
-This parameter toggles using of HTML table tags for dirlistings instead of simple list of links. If specified  **true**, the server in dirlisting also writes modification time and size in row for each file in requested directory.
+This parameter toggles using of HTML table tags for dirlistings instead of
+simple list of links. If specified **true**, the server in dirlisting also
+writes modification time and size in row for each file in requested directory.
 
 #### Commentaries
 
@@ -202,11 +228,11 @@ A comment in the config file defines by `#`.
 ## Command line arguments
 
 List of arguments:
-> -d | --daemonize\
-  --config=\<file>\
-  --port=\<port>\
-  --host\_addr=\<ip>\
-  --root=\<dir>\
+> -d | --daemonize   \
+  --config=\<file>   \
+  --port=\<port>     \
+  --host\_addr=\<ip> \
+  --root=\<dir>      \
   -h | --help
 
 #### -d | --daemonize 
@@ -219,15 +245,15 @@ This parameter specifies path to the server's configuration file.
 
 #### --port
 
-See [port option](#port)
+Same as [server-port config option](#server-port)
 
 #### --host\_addr
 
-See [host\_addr option](#host_addr)
+Same as [server-binding-device-address config option](#server-binding-device-address)
 
 #### --root
 
-See [root option](#root)
+Same as [server-root-directory config option](#server-root-directory)
 
 #### -h | --help
 
@@ -235,6 +261,9 @@ Prints usage message and list of the arguments.
 
 ## Links
 
-x86\_64 Linux syscall table: https://chromium.googlesource.com/chromiumos/docs/+/master/constants/syscalls.md \
-Linux man pages: https://man7.org/linux/man-pages/index.html \
-HTTP reference documentation: https://developer.mozilla.org/en-US/docs/Web/HTTP#reference
+x86\_64 Linux syscall table:
+    https://chromium.googlesource.com/chromiumos/docs/+/master/constants/syscalls.md \
+Linux man pages:
+    https://man7.org/linux/man-pages/index.html                                      \
+HTTP reference documentation:
+    https://developer.mozilla.org/en-US/docs/Web/HTTP#reference
